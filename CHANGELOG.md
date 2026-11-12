@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.7
+- Nib words the guide's instructions his own way. The steps, their order and their targets are unchanged, and plain lines such as Accept, Turn in, Train and Collect stay as they are. Nib Options has a switch for it.
+
 ## 0.7.6
 - Guide text: stray separators no longer show in steps, and colours that were left open or closed twice are tidied.
 - Nib speaks in a few of the guide's own messages.

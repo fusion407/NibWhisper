@@ -129,6 +129,9 @@ function T.Parse(raw)
                 local left,desc=body:match("^(.-)%s*>>%s*(.*)$")
                 -- A few source lines carry a second ">>" inside the sentence. It is a separator, not text for the player.
                 if desc then desc=desc:gsub("%s*>>%s*"," ") end
+                -- Nib's wording, unless it is switched off in Options. The step itself is untouched.
+                local voice=A.TrailVoice
+                if desc and voice and voice.Enabled() then desc=voice.Say(desc) end
                 local tag,args=trim(left or body):match("^%.([%w]+)%s*(.*)$")
                 if tag then
                     local kind = tag:lower()
@@ -145,7 +148,11 @@ function T.Parse(raw)
                     end
                     s.entries[#s.entries+1] = entry
                 elseif desc or body:sub(1,1)=="+" then
-                    local note = desc or body:sub(2)
+                    local note = desc
+                    if not note then
+                        note = body:sub(2)
+                        if voice and voice.Enabled() then note = voice.Say(note) end
+                    end
                     s.entries[#s.entries+1]={kind="note",desc=text(note),display=routeText(note),condition=filter}
                 end
             end
@@ -603,6 +610,12 @@ T.finishSound = "Interface\\AddOns\\NibWhisper_Guide\\Sounds\\jobs_done.mp3"
 function T:ChapterFinished()
     if A.db.trailFinishSound == false then return end
     call(PlaySoundFile, self.finishSound, "Master")
+end
+-- Chapters are worded as they are read, so a change of wording means reading them again.
+function T:Reword()
+    self.parsed = {}
+    self.rowSignature = nil
+    self:Tick(true)
 end
 function T:Browse(index)
     local g, s = self:Current()

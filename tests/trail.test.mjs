@@ -12,7 +12,7 @@ const root=fileURLToPath(new URL('../addon/',import.meta.url));
 // Files in the order the game loads them: the core addon first, then each enabled sub-addon.
 const core=['NibWhisper/Protocol.lua','NibWhisper/Context.lua','NibWhisper/UI.lua','NibWhisper/Core.lua'];
 const assistant=['NibWhisper_Assistant/Assistant.lua','NibWhisper_Assistant/CharacterData.lua','NibWhisper_Assistant/Optical.lua'];
-const guide=['NibWhisper_Guide/TrailData.lua','NibWhisper_Guide/QuestLinks.lua','NibWhisper_Guide/Trail.lua','NibWhisper_Guide/TrailSync.lua'];
+const guide=['NibWhisper_Guide/TrailData.lua','NibWhisper_Guide/QuestLinks.lua','NibWhisper_Guide/Voice.lua','NibWhisper_Guide/Trail.lua','NibWhisper_Guide/TrailSync.lua'];
 function client(files){
  const l=lauxlib.luaL_newstate();lualib.luaL_openlibs(l);
  const run=(s,name,module=false)=>{
@@ -57,6 +57,31 @@ test('the leveling guide works with the AI assistant switched off',()=>{
  assert(o.login:GetText()=='Open at login: on');o.login.scripts.OnClick();assert(A.db.trailOpenOnLogin==false and o.login:GetText()=='Open at login: off')
  A.initialized=false;A.UI.created=true;T.frame:Hide();A:Initialize();assert(not T.frame:IsShown(),'the Options switch keeps the guide closed at login')
  A.db.trailOpenOnLogin=nil;T:Open()
+ -- Nib's wording: instructions are rephrased, plain bookkeeping lines and all names and markup are left alone.
+ local V=A.TrailVoice
+ for _,line in ipairs({'Accept Return to Marshal McBride','Turn in Kill the Kobolds','Train Battle Shout','Collect 8 Boar Tusks','Abandon The Lost Tools','Pick up the crate','','[Mining Pick]'}) do assert(V.Say(line)==line,line) end
+ local talk=V.Say('Talk to |cRXP_FRIENDLY_Marshal McBride|r')
+ assert(talk~='Talk to |cRXP_FRIENDLY_Marshal McBride|r' and talk:find(' |cRXP_FRIENDLY_Marshal McBride|r',1,true) and not talk:find('Talk to',1,true),talk)
+ assert(V.Say('Talk to |cRXP_FRIENDLY_Marshal McBride|r')==talk,'the same step always reads the same way')
+ local tight=V.Say("|Tinterface/worldmap/chatbubble_64grey.blp:20|tTalk to|r |cRXP_FRIENDLY_Ur'kyo|r")
+ assert(tight:find('|Tinterface/worldmap/chatbubble_64grey.blp:20|t',1,true)==1 and tight:find("|r |cRXP_FRIENDLY_Ur'kyo|r",1,true) and not tight:find('Talk to',1,true),tight)
+ local two=V.Say('Kill |cRXP_ENEMY_Yetis|r. Loot them for their |cRXP_LOOT_Hides|r')
+ assert(not two:find('Kill ',1,true) and not two:find('Loot them',1,true) and two:find('|cRXP_ENEMY_Yetis|r. ',1,true) and two:find(' their |cRXP_LOOT_Hides|r',1,true),two)
+ assert(V.Say('Click items on the floor')=='Tap items on the floor','a short phrase does not match inside a longer word')
+ assert(V.Say('Click it')=='Give it a poke')
+ assert(V.Say('He patrols the road to the north')=='He patrols the road to the north','sentences Nib has nothing to add to stay as written')
+ local inside=V.Say('|cRXP_WARN_Be careful as |cRXP_ENEMY_Defias Thugs|r hit hard|r')
+ assert(inside:sub(1,11)=='|cRXP_WARN_' and not inside:find('Be careful as',1,true) and inside:find('|cRXP_ENEMY_Defias Thugs|r hit hard|r',1,true),inside)
+ local worded=T.Parse('step\\n>> Talk to |cRXP_FRIENDLY_Brother Bob|r\\n.accept 7 >> Accept Kobold Camp Cleanup')
+ assert(not worded.entries[1].desc:find('Talk to',1,true) and worded.entries[1].desc:find(' Brother Bob',1,true) and worded.entries[1].display:find('|Hnib:FRIENDLY:Brother Bob|h',1,true),worded.entries[1].display)
+ assert(worded.entries[2].desc=='Accept Kobold Camp Cleanup')
+ A.UI:RefreshOptions();assert(A.UI.options.voice:GetText()=="Nib's wording: on")
+ local before=T.parsed
+ A.UI.options.voice.scripts.OnClick()
+ assert(A.db.trailVoice==false and T.parsed~=before and A.UI.options.voice:GetText()=="Nib's wording: off",'switching it off rereads the chapters')
+ assert(T.Parse('step\\n>> Talk to |cRXP_FRIENDLY_Brother Bob|r').entries[1].desc=='Talk to Brother Bob','off shows the route as written')
+ A.UI.options.voice.scripts.OnClick();assert(A.db.trailVoice==true)
+ A.db.trailVoice=nil
  -- The chapter sound plays once when the player passes the last step, by Done or by auto advance, and never while browsing.
  local played={}
  function PlaySoundFile(file,channel) played[#played+1]=file..'|'..channel end
@@ -294,7 +319,7 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  local messy=T.Parse('step\\n>> Clear a path first. >>This fight is hard\\n>> Kill |cRXP_ENEMY_Withered Protectors and loot them')
  assert(messy.entries[1].desc=='Clear a path first. This fight is hard',messy.entries[1].desc)
  local _,opened=messy.entries[2].display:gsub('|c%x%x%x%x%x%x%x%x','');local _,closed=messy.entries[2].display:gsub('|r','')
- assert(opened==1 and closed==1 and messy.entries[2].desc=='Kill Withered Protectors and loot them',messy.entries[2].display)
+ assert(opened==1 and closed==1 and messy.entries[2].desc:find(' Withered Protectors and loot them',1,true),messy.entries[2].display)
  assert(T.Matches('Horde/Alliance Paladin !Mage',T.Profile())==true)
  assert(T.Matches('new_unknown_tag',T.Profile())==nil)
  assert(T.Point('1429,42.5,33.25').x==42.5)
