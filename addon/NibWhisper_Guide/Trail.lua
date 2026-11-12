@@ -327,7 +327,7 @@ function T:Evaluate(g,index,p,q)
 end
 function T:EvaluateStep(g,index,p,q)
     local s=self:Chapter(g).steps[index]; if not s then return nil end
-    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={}}
+    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={}}
     local m=self.Matches(s.condition,p);if m==false then r.skip=true;r.skipReason="does not apply to your character";return r elseif m==nil then r.review=true end
     for _, f in ipairs(s.flags) do
         local active=self.Matches(f.condition,p)
@@ -418,6 +418,24 @@ function T:EvaluateStep(g,index,p,q)
                     end
                 end
                 check(q(k,id,objectiveIndex),instruction,id,styled,entry,k,nil,e.checkboxCondition)
+                if k == "complete" and id and objectiveIndex and not r.questParts[id] then
+                    -- The route gives each part of a quest its own step. Show where the whole quest stands as well.
+                    local objectives = call(C_QuestLog and C_QuestLog.GetQuestObjectives, math.abs(id))
+                    if type(objectives) == "table" and #objectives > 1 then
+                        local parts = {}
+                        for _, objective in ipairs(objectives) do
+                            if type(objective.text) == "string" and objective.text ~= "" then
+                                parts[#parts+1] = (objective.finished and "|cff8fe3bf" or "|cffb8bdd0") .. text(objective.text) .. "|r"
+                            end
+                        end
+                        if #parts > 1 then
+                            r.questParts[id] = true
+                            local plainParts = {}
+                            for i, part in ipairs(parts) do plainParts[i] = part:gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r","") end
+                            addLine((title or "Quest") .. " so far: " .. table.concat(plainParts, ", "), (title or "Quest") .. " so far: " .. table.concat(parts, ", "))
+                        end
+                    end
+                end
             elseif k=="collect" then
                 local count=call(C_Item and C_Item.GetItemCount or GetItemCount,id)
                 local needed, quest = tonumber(a[2]) or 1, tonumber(a[3])
@@ -471,7 +489,12 @@ function T:EvaluateStep(g,index,p,q)
             elseif k=="use" and (description=="" or s.collectionQuests[id]) then
                 if description~="" then addLine(description,e.display) end
             elseif not quiet[k] and (description~="" or manualNames[k]) then
-                check(false,description~="" and description or manualNames[k],nil,e.display,entry,k,id,e.checkboxCondition)
+                -- Some of these can be read straight from the game. The rest are ticked by events (see T:GameEvent).
+                local done=false
+                if id and k=="abandon" then done=q("isonquest",id)==false
+                elseif id and k=="destroy" then done=call(C_Item and C_Item.GetItemCount or GetItemCount,id)==0
+                elseif id and k=="equip" then done=call(C_Item and C_Item.IsEquippedItem or IsEquippedItem,id)==true end
+                check(done,description~="" and description or manualNames[k],nil,e.display,entry,k,id,e.checkboxCondition)
             elseif description~="" then addLine(description,e.display) end
         end
     end
@@ -505,6 +528,10 @@ function T:Init()
         db.trailArchive[D.dataset]=nil
     end
     self.state=db.trail;self.state.guides=self.state.guides or {};self.dirty=false
+    if not self.gossipHooked and C_GossipInfo and C_GossipInfo.SelectOption and hooksecurefunc then
+        -- Choosing a dialogue option is what "talk to X to start the escort" steps are waiting for.
+        self.gossipHooked = pcall(hooksecurefunc, C_GossipInfo, "SelectOption", function() pcall(T.AutoMark, T, {gossipoption=true}) end)
+    end
     self.clock=self.state.selected and self.state.selected.at or 0
     for _, g in pairs(self.state.guides) do self.clock=math.max(self.clock,g.at or 0) end
 end
@@ -534,6 +561,49 @@ function T:ToggleObjective(control)
     self:ApplyMarks(g, {{step=control.step, entry=control.entry, checked=not control.marked}})
     self.reviewing = false
     self:Tick(true)
+end
+
+-- Ticks off manual checks of the given kinds in the current step and its side steps.
+-- id narrows it to checks that name that spell or option; without one, every check of the kind is ticked.
+function T:AutoMark(kinds, id, quiet)
+    local g, s = self:Current()
+    if not g or not s then return 0 end
+    local p, q, changes = self.Profile(), quests(), {}
+    local function track(step)
+        local result = self:Evaluate(g, step, p, q)
+        if not result or result.skip then return end
+        for _, control in pairs(result.controls) do
+            if kinds[control.kind] and not control.marked and not control.automatic and (id == nil or control.merchant == id) then
+                changes[#changes + 1] = {step=step, entry=control.entry, checked=true}
+            end
+        end
+    end
+    track(s.step)
+    for _, step in ipairs(s.sticky or {}) do if step ~= s.step then track(step) end end
+    if #changes > 0 then
+        self:ApplyMarks(g, changes)
+        if not quiet then self:Tick(true) end
+    end
+    return #changes
+end
+
+local HEARTHSTONE_SPELL = 8690
+-- Game events that finish a step the quest log knows nothing about.
+function T:GameEvent(event, arg1, arg2, arg3)
+    if not self.state then return end
+    if event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
+        if self.reviewing then self.reviewEvent = true end
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        if arg1 ~= "player" or type(arg3) ~= "number" then return end
+        if arg3 == HEARTHSTONE_SPELL then self:AutoMark({hs=true}) end
+        self:AutoMark({cast=true}, arg3)
+    elseif event == "HEARTHSTONE_BOUND" then self:AutoMark({home=true})
+    elseif event == "TAXIMAP_OPENED" then self:AutoMark({fp=true})
+    elseif event == "UI_INFO_MESSAGE" then
+        -- "New flight path discovered!"
+        if ERR_NEWTAXIPATH and arg2 == ERR_NEWTAXIPATH then self:AutoMark({fp=true}) end
+    elseif event == "PLAYER_UNGHOST" then self:AutoMark({deathskip=true})
+    end
 end
 
 function T:MerchantEvent(event)
@@ -599,6 +669,7 @@ function T:Move(delta,skip)
     for _,i in ipairs(s.sticky or {}) do sticky[#sticky+1]=i end
     if skip and s.step<=g.steps then skipped[#skipped+1]=s.step end
     self.reviewing=delta<0
+    self.reviewEvent,self.reviewOpen=nil,nil
     self.arrivedStep = delta > 0 and (g.id .. ":" .. n) or nil
     self.skipNotice = nil
     self:Write(g,n,skipped,sticky)
@@ -621,6 +692,7 @@ function T:Browse(index)
     local g, s = self:Current()
     if not g or not s or index < 1 or index > g.steps or index == s.step then return end
     self.reviewing = true
+    self.reviewEvent, self.reviewOpen = nil, nil
     self.arrivedStep, self.skipNotice = nil, nil
     self:Write(g,index,s.skipped,s.sticky)
     self:Refresh()
@@ -648,18 +720,12 @@ function T:Advance(p,q)
         elseif r.sticky and not r.review then keep(i,r);i=i+1
         elseif not r.review and r.checks == 0 and #r.lines == 0 and not r.point then i=i+1
         elseif r.complete and not p.dead and A.db.trailAuto~=false then
-            local key = g.id .. ":" .. i
-            if i ~= s.step or self.arrivedStep == key then break end
+            -- A finished step never holds the guide up, including one that was already finished on arrival
+            -- (an item looted early, a quest handed in ahead of the route).
             i=i+1
-        else
-            if self.arrivedStep == g.id .. ":" .. i then self.arrivedStep = nil end
-            break
-        end
+        else break end
     end
     if i~=s.step then
-        -- Leave an already-complete destination visible. Advance automatically once this step has been seen incomplete.
-        local destination = self:Evaluate(g,i,p,q)
-        self.arrivedStep = destination and destination.complete and (g.id .. ":" .. i) or nil
         self.skipNotice = #reasons>0 and {key=g.id .. ":" .. i, first=reasons[1], count=#reasons} or nil
     end
     if i~=s.step or #sticky~=#(s.sticky or {}) then self:Write(g,i,s.skipped,sticky);mutated=true end
@@ -826,9 +892,25 @@ function T:Build()
         row:SetPoint("TOPRIGHT", -28, -34 - (i - 1) * 15)
         row:SetHeight(15)
         row.caption:SetJustifyH("LEFT")
+        -- Room on the left for the step's checkbox.
+        row.caption:ClearAllPoints(); row.caption:SetPoint("TOPLEFT", 17, 0); row.caption:SetPoint("BOTTOMRIGHT", 0, 0)
         if row.caption.SetMaxLines then row.caption:SetMaxLines(1) end
         row.bg = A.UI:Paint(row, "BACKGROUND", 0.10, 0.12, 0.22)
         row.bg:SetShown(i == 2)
+        -- The checkbox: tick the step you are on to skip it, tick the one after to skip both, untick the one before to go back.
+        local box = CreateFrame("Button", nil, row)
+        box:SetSize(15, 15); box:SetPoint("LEFT", 0, 0)
+        box.mark = box:CreateTexture(nil, "ARTWORK"); box.mark:SetAllPoints()
+        box:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+        box:SetScript("OnClick", function() T:PreviewBox(i - 2) end)
+        box:SetScript("OnEnter", function(self)
+            if not row.index then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(i == 1 and "Go back to this step" or i == 2 and "Skip this step" or "Skip to after this step")
+            GameTooltip:Show()
+        end)
+        box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        row.box = box
         self.preview[i] = row
     end
     local up = trackerButton(tracker, "^", 23, function()
@@ -909,6 +991,18 @@ function T:LayoutFooter()
     end
 end
 
+-- A click on a step-list checkbox. offset is -1 for the step before, 0 for the current step, 1 for the step after.
+function T:PreviewBox(offset)
+    local g, s = self:Current()
+    local row = self.preview and self.preview[offset + 2]
+    if not g or not s or not row or not row.index then return end
+    if offset < 0 then self:Move(-1)
+    else
+        self:Move(1, true)
+        if offset > 0 then self:Move(1, true) end
+    end
+end
+
 function T:RefreshPreview(g, s, p, q, current)
     for offset = -1, 1 do
         local row = self.preview[offset + 2]
@@ -916,6 +1010,9 @@ function T:RefreshPreview(g, s, p, q, current)
         local evaluated = offset == 0 and current or nil
         if g and index and offset ~= 0 and index >= 1 and index <= g.steps then evaluated = self:Evaluate(g,index,p,q) end
         row.index = evaluated and index or nil
+        row.box:SetShown(row.index ~= nil)
+        -- Steps behind you show a tick; the current and next step show an empty box.
+        row.box.mark:SetTexture(offset < 0 and "Interface\\Buttons\\UI-CheckBox-Check" or "Interface\\Buttons\\UI-CheckBox-Up")
         if evaluated then
             local line = evaluated.display[1] or evaluated.lines[1] or evaluated.skipReason or "Route marker"
             line = line:gsub("^%[Done%] ", ""):gsub("^%[Marked%] ", ""):gsub("^%[ %] ", "")
@@ -1049,7 +1146,7 @@ function T:Refresh(p, q)
         lines[#lines+1] = "\n" .. notice.first .. (notice.count > 1 and (" +" .. (notice.count - 1) .. " route checks") or "")
     end
     local syncNotice = self.syncNoticeUntil and (call(GetTime) or 0) < self.syncNoticeUntil and self.syncStatus
-    self.meta:SetText(syncNotice or (g.mode .. (self.reviewing and " · Review paused" or A.db.trailAuto == false and " · Auto off" or "")))
+    self.meta:SetText(syncNotice or (g.mode .. (self.reviewing and " · Paused, Done resumes" or A.db.trailAuto == false and " · Auto off" or "")))
     local fraction = math.max(0, math.min(1, (s.step - 1) / math.max(1, g.steps)))
     self.stepTag:SetText(r and string.format("Step %d / %d  ·  %d%%", s.step, g.steps, math.floor(fraction * 100)) or "Chapter complete")
     self.progress:SetWidth(math.max(1, (self.frame:GetWidth() - 18) * fraction)); self.progress:Show()
@@ -1366,6 +1463,20 @@ function T:Tick(force)
     self.lastTick=now
     local p,q=self.Profile(),quests()
     p.memo={}
+    -- On a flight: the step that said to fly is done.
+    local flying=call(UnitOnTaxi,"player")==true
+    if flying and not self.wasFlying then self:AutoMark({fly=true},nil,true) end
+    self.wasFlying=flying
+    if self.reviewing then
+        -- Browsing pauses the guide only until the game moves on: the step being looked at gets finished,
+        -- or a quest is accepted or handed in. Done also resumes it.
+        local g,s=self:Current()
+        local r=g and s and self:Evaluate(g,s.step,p,q)
+        if not r or self.reviewEvent then self.reviewing=false
+        elseif not r.complete then self.reviewOpen=true
+        elseif self.reviewOpen then self.reviewing=false end
+        if not self.reviewing then self.reviewEvent,self.reviewOpen=nil,nil end
+    end
     if not self.reviewing and A.db.trailAuto~=false and not p.dead then self:Advance(p,q) end
     self:Refresh(p,q)
 end

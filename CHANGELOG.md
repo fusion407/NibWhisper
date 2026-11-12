@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.8
+- The guide no longer waits on a step that is already finished when you reach it.
+- Browsing steps pauses the guide only until you finish the step you are looking at, or accept or hand in a quest.
+- Flying, hearthing, setting your home, learning a flight path, abandoning a quest, casting a named spell, equipping or destroying an item, dying to respawn, and choosing a dialogue option now tick their steps by themselves.
+- A step that tracks one part of a quest also shows where the whole quest stands.
+- The step list has a checkbox on each row to skip a step or go back.
+
 ## 0.7.7
 - Nib words the guide's instructions his own way. The steps, their order and their targets are unchanged, and plain lines such as Accept, Turn in, Train and Collect stay as they are. Nib Options has a switch for it.
 

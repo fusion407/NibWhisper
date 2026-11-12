@@ -382,9 +382,64 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  T.byID[sample.id]=sample;active[7]=false;active[783]=true
  T.state.selected={id=sample.id};T:Write(sample,1);T.reviewing=false;T.arrivedStep=nil
  T:Advance(p,T.QuestReader())
- assert(T.state.guides[sample.id].step==2 and T.skipNotice.first:find('A Threat Within',1,true),'automatic skip must show the missing prerequisite')
+ assert(T.state.guides[sample.id].step==3 and T.skipNotice.first:find('A Threat Within',1,true),'the blocked step is skipped with its reason, and the step that was already done does not hold the guide up')
  T:Advance(p,T.QuestReader())
- assert(T.state.guides[sample.id].step==2,'the already complete destination must stay visible')
+ assert(T.state.guides[sample.id].step==3,'a step with something left to do is where the guide stops')
+
+ -- Progress the quest log does not report: manual steps tick themselves from what the player does.
+ local auto={id='auto-fixture',title='Auto fixture',mode='Solo route',faction='Alliance',conditions={},steps=9,next={}}
+ local function fixture(...) local steps={};for i,body in ipairs({...}) do steps[i]=T.Parse(body) end;T.parsed[auto.id]={steps=steps,labels={}} end
+ fixture('step\\n.fly Stormwind >> Fly to Stormwind','step\\n.hs >> Hearth to Goldshire','step\\n.home >> Set your Hearthstone to Goldshire',
+  'step\\n.fp Sentinel Hill >> Get the Sentinel Hill flight path','step\\n.abandon 783 >> Abandon A Threat Within','step\\n.cast 2575 >> Cast the spell',
+  'step\\n.deathskip >> Die and respawn','step\\n.gossipoption 95406 >> Talk to the robot to start the escort','step\\n>> Rest here')
+ T.byID[auto.id]=auto;T.state.selected={id=auto.id};T:Write(auto,1);T.reviewing=false;T:Open()
+ local function at() return T.state.guides[auto.id].step end
+ local fire=A.eventFrame.scripts.OnEvent
+ local flying=false;function UnitOnTaxi() return flying end
+ T:Tick(true);assert(at()==1)
+ flying=true;T:Tick(true);T:Tick(true);assert(at()==2,'taking the flight finishes the fly step: '..at());flying=false
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','target','cast',8690);T:Tick(true);assert(at()==2,'someone else hearthing is ignored')
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',8690);T:Tick(true);assert(at()==3,'hearthing finishes the hearth step')
+ fire(nil,'HEARTHSTONE_BOUND');T:Tick(true);assert(at()==4,'binding finishes the set-home step')
+ ERR_NEWTAXIPATH='New flight path discovered!'
+ fire(nil,'UI_INFO_MESSAGE',1,'Some other message');T:Tick(true);assert(at()==4)
+ fire(nil,'UI_INFO_MESSAGE',1,ERR_NEWTAXIPATH);T:Tick(true);assert(at()==5,'discovering the flight path finishes that step')
+ active[783]=true;T:Tick(true);assert(at()==5,'the quest is still in the log')
+ active[783]=nil;T:Tick(true);assert(at()==6,'abandoning the quest finishes the abandon step')
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',133);T:Tick(true);assert(at()==6,'a different spell does not count')
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',2575);T:Tick(true);assert(at()==7,'casting the named spell finishes the cast step')
+ fire(nil,'PLAYER_UNGHOST');T:Tick(true);assert(at()==8,'coming back to life finishes the die-and-respawn step')
+ assert(T:AutoMark({gossipoption=true})==1);T:Tick(true);assert(at()==9,'choosing the dialogue option finishes the talk-to-start step')
+
+ -- Browsing pauses the guide only until the game moves on.
+ fixture('step\\n.accept 7 >> Accept Kobold Camp Cleanup','step\\n.turnin 7 >> Turn in Kobold Camp Cleanup','step\\n>> Rest here')
+ auto.steps=3;active[7]=true;complete[7]=false;T.state.guides[auto.id].marks=nil;T:Write(auto,2);T.reviewing=false;T:Tick(true);assert(at()==2,'ticks from the earlier steps are cleared for the new fixture')
+ T:Browse(1);T:Tick(true);assert(at()==1 and T.reviewing,'looking back at a finished step stays put')
+ fire(nil,'QUEST_TURNED_IN',7);complete[7]=true;active[7]=false;T:Tick(true)
+ assert(not T.reviewing and at()==3,'handing in a quest resumes the guide: '..at())
+ complete[7]=false;active[7]=false;complete[783]=true;A.observedTurnIns[7]=nil;T:Write(auto,1);T.reviewing=false;T:Tick(true);assert(at()==1,'a fresh start for the second browsing case')
+ T:Browse(2);T:Tick(true);assert(at()==2 and T.reviewing)
+ T:Browse(1);T:Tick(true);assert(at()==1 and T.reviewing,'an unfinished step being browsed stays put')
+ active[7]=true;T:Tick(true);assert(not T.reviewing and at()==2,'finishing the browsed step resumes the guide: '..at())
+
+ -- The step list has a checkbox on each row: skip the current step, skip past the next one, or go back.
+ fixture('step\\n>> Walk north','step\\n>> Walk east','step\\n>> Walk south','step\\n>> Walk west','step\\n>> Rest here')
+ auto.steps=5;T.state.guides[auto.id].marks=nil;T:Write(auto,2);T.reviewing=false;T:Tick(true)
+ assert(at()==2 and T.preview[1].box:IsShown() and T.preview[2].box:IsShown() and T.preview[3].box:IsShown())
+ T.preview[2].box.scripts.OnClick();assert(at()==3 and T.state.guides[auto.id].skipped[1]==2,'ticking the current step skips it')
+ T.preview[3].box.scripts.OnClick();assert(at()==5,'ticking the next step skips past it: '..at())
+ T.preview[1].box.scripts.OnClick();assert(at()==4 and T.reviewing,'the step before goes back')
+ T:Write(auto,1);T.reviewing=false;T:Tick(true);assert(not T.preview[1].box:IsShown(),'no checkbox where there is no step')
+ -- A step that tracks one part of a quest also shows where the whole quest stands.
+ fixture('step\\n.complete 2098,3 >> Loot the Bottom of the Key','step\\n>> Rest here')
+ auto.steps=2;active[2098]=true;T.state.guides[auto.id].marks=nil;T:Write(auto,1)
+ local realObjectives=C_QuestLog.GetQuestObjectives
+ C_QuestLog.GetQuestObjectives=function(id) if id==2098 then return {{text='Top of the Key: 0/1',numFulfilled=0,numRequired=1,finished=false},{text='Middle of the Key: 1/1',numFulfilled=1,numRequired=1,finished=true},{text='Bottom of the Key: 0/1',numFulfilled=0,numRequired=1,finished=false}} end return realObjectives(id) end
+ local parts=T:Evaluate(auto,1,T.Profile(),T.QuestReader())
+ assert(table.concat(parts.lines,'|'):find('so far: Top of the Key: 0/1, Middle of the Key: 1/1, Bottom of the Key: 0/1',1,true),table.concat(parts.lines,'|'))
+ assert(not parts.complete)
+ C_QuestLog.GetQuestObjectives=realObjectives;active[2098]=nil
+ T.byID[auto.id]=nil;T.state.guides[auto.id]=nil;T.state.selected={id=sample.id}
  `,'@trail-test');
  lua.lua_close(l);
 });

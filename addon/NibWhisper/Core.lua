@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.7"
+addon.VERSION = "0.7.8"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}
@@ -472,7 +472,7 @@ function addon:Initialize()
     if type(NibWhisperCharDB) ~= "table" then NibWhisperCharDB = {} end
     self.db, self.charDB = NibWhisperDB, NibWhisperCharDB
     self.db.opticalEnabled = self.db.opticalEnabled == true
-    -- 0.6.1 to 0.7.7 could switch a linked player to copy and paste at login. Put automatic mode back once.
+    -- 0.6.1 to 0.7.8 could switch a linked player to copy and paste at login. Put automatic mode back once.
     if self.db.geminiLinked == nil and self.Optical then
         if self.db.chatMode == "manual" or self.db.chatMode == "automatic" or self.db.opticalEnabled then
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true
@@ -548,16 +548,27 @@ if CreateFrame then
     for _, event in ipairs({"QUEST_ACCEPTED", "QUEST_LOG_UPDATE", "SPELLS_CHANGED", "LEARNED_SPELL_IN_TAB", "TRAINER_UPDATE", "MERCHANT_SHOW", "MERCHANT_CLOSED", "PLAYER_REGEN_ENABLED"}) do
         pcall(frame.RegisterEvent, frame, event)
     end
+    -- Things the player does that finish a guide step without touching a quest: flying, hearthing, binding,
+    -- learning a flight path, casting a spell, resurrecting. The guide ticks those steps off itself.
+    local progressEvents = {HEARTHSTONE_BOUND=true, UI_INFO_MESSAGE=true, TAXIMAP_OPENED=true, PLAYER_CONTROL_LOST=true, QUEST_REMOVED=true,
+        UNIT_QUEST_LOG_CHANGED=true, QUEST_WATCH_UPDATE=true}
+    for event in pairs(progressEvents) do pcall(frame.RegisterEvent, frame, event) end
+    -- Only the player's own casts matter, and this event fires for every unit nearby.
+    if not (frame.RegisterUnitEvent and pcall(frame.RegisterUnitEvent, frame, "UNIT_SPELLCAST_SUCCEEDED", "player")) then
+        pcall(frame.RegisterEvent, frame, "UNIT_SPELLCAST_SUCCEEDED")
+    end
     local questWindowEvents = {GOSSIP_SHOW=true, QUEST_GREETING=true, QUEST_DETAIL=true, QUEST_PROGRESS=true, QUEST_COMPLETE=true, QUEST_ACCEPT_CONFIRM=true}
     for event in pairs(questWindowEvents) do pcall(frame.RegisterEvent, frame, event) end
-    frame:SetScript("OnEvent", function(_, event, arg1, arg2)
+    frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         -- Start at login, once the Leveling Guide and AI Assistant addons have had their chance to load.
         if event == "PLAYER_LOGIN" then addon:Initialize()
         elseif event ~= "ADDON_LOADED" and addon.initialized then
             if addon.CharacterData and inventoryEvents[event] then addon.CharacterData:Event(event) end
             if event == "PLAYER_LOGOUT" and addon.FontSlots then addon.FontSlots:Logout() end
+            if event == "UNIT_SPELLCAST_SUCCEEDED" and arg1 ~= "player" then return end
             if addon.Trail then
                 if event == "QUEST_TURNED_IN" and P.IsPositiveInteger(arg1) then addon.observedTurnIns[arg1] = true end
+                pcall(addon.Trail.GameEvent, addon.Trail, event, arg1, arg2, arg3)
                 if event == "MERCHANT_SHOW" or event == "MERCHANT_CLOSED" then addon.Trail:MerchantEvent(event) end
                 if questWindowEvents[event] then pcall(addon.Trail.QuestAutomation, addon.Trail, event, arg1, arg2) end
                 if deathEvents[event] or event == "PLAYER_ENTERING_WORLD" then addon.Trail:RestoreAfterDeath() end
