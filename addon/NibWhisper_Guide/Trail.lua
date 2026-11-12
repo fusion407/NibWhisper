@@ -129,9 +129,6 @@ function T.Parse(raw)
                 local left,desc=body:match("^(.-)%s*>>%s*(.*)$")
                 -- A few source lines carry a second ">>" inside the sentence. It is a separator, not text for the player.
                 if desc then desc=desc:gsub("%s*>>%s*"," ") end
-                -- Nib's wording, unless it is switched off in Options. The step itself is untouched.
-                local voice=A.TrailVoice
-                if desc and voice and voice.Enabled() then desc=voice.Say(desc) end
                 local tag,args=trim(left or body):match("^%.([%w]+)%s*(.*)$")
                 if tag then
                     local kind = tag:lower()
@@ -148,11 +145,7 @@ function T.Parse(raw)
                     end
                     s.entries[#s.entries+1] = entry
                 elseif desc or body:sub(1,1)=="+" then
-                    local note = desc
-                    if not note then
-                        note = body:sub(2)
-                        if voice and voice.Enabled() then note = voice.Say(note) end
-                    end
+                    local note = desc or body:sub(2)
                     s.entries[#s.entries+1]={kind="note",desc=text(note),display=routeText(note),condition=filter}
                 end
             end
@@ -393,7 +386,13 @@ function T:EvaluateStep(g,index,p,q)
             if k=="goto" or k=="waypoint" then
                 local point=self.Point(args)
                 if point then point.title=description~="" and description or g.title;lastPoint=point;if not point.hidden then r.points[#r.points+1]=point end end
-                if description~="" then addLine(description,e.display,nil,nil,point) end
+                if description~="" then
+                    if k=="goto" and point and point.radius then
+                        -- "Travel to X" written on the waypoint itself is an objective: it is done once the player is inside the radius.
+                        local distance=self.Distance(point,p)
+                        check(distance~=nil and distance<=point.radius,description,nil,e.display,entry,"goto",nil,e.checkboxCondition)
+                    else addLine(description,e.display,nil,nil,point) end
+                end
             elseif k=="target" or k=="mob" or k=="unitscan" then
                 local name = trim(args:gsub("^[+%-]", ""))
                 if name ~= "" and #name <= 80 and not name:find("[%c|%[%];,]") then r.targets[#r.targets+1] = name end
@@ -473,7 +472,11 @@ function T:EvaluateStep(g,index,p,q)
                 if description~="" then addLine(description,e.display,nil,nil,lastPoint) end
             elseif k=="zoneskip" or k=="subzoneskip" then
                 local pass
-                if k=="subzoneskip" then if p.subzone~="" then pass=p.subzone==a[1] end
+                if k=="subzoneskip" then
+                    -- The route names the area by number. Compare by its name, which is what the game reports for the player.
+                    local area=a[1]
+                    if tonumber(area) then area=call(C_Map and C_Map.GetAreaInfo,tonumber(area)) end
+                    if p.subzone~="" and type(area)=="string" and area~="" then pass=p.subzone==area end
                 elseif p.mapID then for _, z in ipairs(split(a[1] or "","/+") ) do if self.MapID(z) then pass=(pass==true or self.MapID(z)==p.mapID) end end end
                 if pass~=nil and pass~=((tonumber(a[2]) or 0)%2==1) then r.skip=true end
             elseif k=="itemcount" then
@@ -681,12 +684,6 @@ T.finishSound = "Interface\\AddOns\\NibWhisper_Guide\\Sounds\\jobs_done.mp3"
 function T:ChapterFinished()
     if A.db.trailFinishSound == false then return end
     call(PlaySoundFile, self.finishSound, "Master")
-end
--- Chapters are worded as they are read, so a change of wording means reading them again.
-function T:Reword()
-    self.parsed = {}
-    self.rowSignature = nil
-    self:Tick(true)
 end
 function T:Browse(index)
     local g, s = self:Current()
@@ -1021,7 +1018,7 @@ function T:RefreshPreview(g, s, p, q, current)
             local v = offset == 0 and 0.94 or 0.56
             row.caption:SetTextColor(v,v,offset == 0 and 1 or 0.66)
         else
-            row.caption:SetText(offset == 0 and (g and "Chapter complete. Mrrgl!" or "Click the banner to choose a route") or "")
+            row.caption:SetText(offset == 0 and (g and "Chapter complete" or "Click the banner to choose a route") or "")
         end
     end
 end
@@ -1134,7 +1131,7 @@ function T:Refresh(p, q)
         self.stepTag:SetText("Nib Trail"); self.nav:SetText(""); self.currentPoint = nil; self.routePoints = {}; self:Pin(nil)
         self.progress:Hide()
         self:RefreshPreview()
-        self:RenderRows({"Mrrgl! No route yet. Click the map or the banner and I'll unfold a chapter for you."})
+        self:RenderRows({"Click the map or route banner to choose a chapter."})
         return
     end
     self.title:SetText(text(g.title))
@@ -1164,11 +1161,10 @@ function T:Refresh(p, q)
             points[#lines] = r.linePoints[i]
             links[#lines] = r.links[i]
         end
-        if #lines == 0 then lines[1] = "Just a mark on my map. Nothing to do here, so click Done and we'll paddle on." end
+        if #lines == 0 then lines[1] = "Route marker. There is no player action here. Click Done to continue." end
     else
         local nextGuide = self:NextChapter(g)
-        lines[1] = nextGuide and ("Chapter complete, and not one map lost to pond water. Next: " .. text(nextGuide.title))
-            or "Chapter complete! Pick another chapter from Routes when your flippers are rested."
+        lines[1] = nextGuide and ("Chapter complete. Next: " .. text(nextGuide.title)) or "Chapter complete. Choose another chapter from Routes."
     end
     for _, i in ipairs(s.sticky or {}) do
         if i < s.step then

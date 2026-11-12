@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.9
+- A "travel to" step now finishes when you arrive, including while you are browsing steps.
+- Steps that should be skipped when you are already in an area now recognise the area.
+- Nib's rewording of the guide is removed. The guide reads as the route was written again.
+
 ## 0.7.8
 - The guide no longer waits on a step that is already finished when you reach it.
 - Browsing steps pauses the guide only until you finish the step you are looking at, or accept or hand in a quest.

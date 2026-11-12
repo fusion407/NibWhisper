@@ -73,6 +73,8 @@ if ((Test-Path -LiteralPath $fontDir -PathType Container) -and -not ((Get-Item -
         if ($created) { Write-Output "Created $created reply files." }
     }
 }
+$oldVoice = Join-Path $targetRoot 'NibWhisper_Guide\Voice.lua'
+if ((Test-Path -LiteralPath $oldVoice -PathType Leaf) -and $PSCmdlet.ShouldProcess($oldVoice, 'Remove a retired Nib file')) { Remove-Item -LiteralPath $oldVoice -Force }
 $staleFolder = Join-Path $coreTarget 'ThirdParty'
 if ((Test-Path -LiteralPath $staleFolder -PathType Container) -and -not (Get-ChildItem -LiteralPath $staleFolder -Force) -and $PSCmdlet.ShouldProcess($staleFolder, 'Remove an empty folder')) { Remove-Item -LiteralPath $staleFolder -Force }
 # Reply slots that are already installed get their updated manifest, so the AddOns list can group them under Nib Whisper.

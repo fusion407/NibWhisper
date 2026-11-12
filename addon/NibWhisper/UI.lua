@@ -546,24 +546,12 @@ function UI:ShowOptions()
                 addon.db.trailOpenOnLogin = addon.db.trailOpenOnLogin == false
                 UI:RefreshOptions()
             end)
-            y = y - 33
-            f.voice = control("", 1, function()
-                addon.db.trailVoice = addon.db.trailVoice == false
-                trail:Reword(); UI:RefreshOptions()
-            end)
-            f.voice:SetScript("OnEnter", function(b)
-                GameTooltip:SetOwner(b, "ANCHOR_TOP"); GameTooltip:AddLine("Nib's wording")
-                GameTooltip:AddLine("On: Nib phrases the guide's instructions his own way. Off: the route's original wording. The steps are the same either way.", 0.85, 0.9, 0.9, true)
-                GameTooltip:Show()
-            end)
-            f.voice:SetScript("OnLeave", function() GameTooltip:Hide() end)
-            y = y + 33
             f.finish = control("", 2, function()
                 addon.db.trailFinishSound = addon.db.trailFinishSound == false
                 if addon.db.trailFinishSound then trail:ChapterFinished() end
                 UI:RefreshOptions()
             end)
-            y = y - 77
+            y = y - 44
         end
         if assistant then
             label(f, "CHAT MODE", "TOPLEFT", 20, y); y = y - 20
@@ -599,7 +587,6 @@ function UI:RefreshOptions()
         f.quests:SetText(addon.db.trailQuestAuto == false and "Auto quests: off" or "Auto quests: on")
         f.login:SetText(addon.db.trailOpenOnLogin == false and "Open at login: off" or "Open at login: on")
         f.finish:SetText(addon.db.trailFinishSound == false and "Chapter sound: off" or "Chapter sound: on")
-        f.voice:SetText(addon.db.trailVoice == false and "Nib's wording: off" or "Nib's wording: on")
     end
     if f.mascot then f.mascot:SetText(addon.db.mascotVisible == true and "Hide Nib Himself" or "Show Nib Himself") end
     f.scale:SetText(string.format("Window size: %d%%", math.floor(self:GetScale() * 100 + 0.5)))

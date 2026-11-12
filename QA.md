@@ -1,4 +1,4 @@
-# Nib Trail 0.7.8 in-game QA
+# Nib Trail 0.7.9 in-game QA
 
 ## Desktop: first five minutes
 
@@ -32,6 +32,8 @@
 18. New in 0.7.5. Show Nib himself from Nib Options and drag the grip in his bottom-right corner. He should grow and shrink in proportion, stop at a smallest and largest size, and keep the size after `/reload`. `/nib reset` restores it. In the guide, right-click a quest objective for a quest you are on and click **View in quest log**; the quest log should open on that quest. The button should be absent for a quest you have not picked up.
 
 19. New in 0.7.8. Play through a few steps without clicking Done: a step whose objective you already finished should be passed over, and a multi-part quest should show a "so far" line listing every part. Take a flight, hearth, and learn a flight path on steps that ask for them and check each ticks itself. Click a row in the step list to browse, then finish that step or hand in a quest and check the guide resumes. Use the checkboxes in the step list to skip the current step, skip past the next, and go back.
+
+20. New in 0.7.9. On a step that only says to travel somewhere, walk there and check the step finishes by itself when you arrive. Check the guide text reads as before, with no reworded instructions, and that Nib Options no longer has a wording switch.
 
 ## Desktop → laptop → desktop
 
