@@ -45,7 +45,7 @@ function methods:SetMaxLetters() end
 function methods:SetResizable() end
 function methods:SetResizeBounds() end
 function methods:StartSizing() end
-BackdropTemplateMixin={}; GameFontHighlightSmall={}; GameFontHighlight={}; UISpecialFrames={}
+BackdropTemplateMixin={}; GameFontHighlightSmall={}; GameFontHighlight={}; UISpecialFrames={}; SlashCmdList={}
 clock=100
 function GetTime() return clock end
 function GetServerTime() return 1794333600 end

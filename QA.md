@@ -1,4 +1,4 @@
-# Nib Trail 0.7.10 in-game QA
+# Nib Trail 0.7.11 in-game QA
 
 ## Desktop: first five minutes
 
@@ -36,6 +36,8 @@
 20. New in 0.7.9. On a step that only says to travel somewhere, walk there and check the step finishes by itself when you arrive. Check the guide text reads as before, with no reworded instructions, and that Nib Options no longer has a wording switch.
 
 21. New in 0.7.10. Click **Quest log** in Nib chat and check the reply sound plays. Ask an AI question and check it plays when the answer arrives, and not when a request fails. Switch **Reply sound** off and on in Nib Options; switching it on previews the sound.
+
+22. New in 0.7.11. With Nib enabled, target an enemy and run a macro with `/tm 8`. The skull should appear with no blocked-action error. Try RestedXP's Active Targets panel as well.
 
 ## Desktop → laptop → desktop
 

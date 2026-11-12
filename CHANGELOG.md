@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.11
+- Fixed: macros and slash commands such as /tm 8 were blocked with an "addon blocked" error blamed on Nib. Nib had reassigned the game's slash-command table, which tainted every slash command.
+
 ## 0.7.10
 - Nib plays a sound when an answer arrives, from guide chat or the AI. Nib Options has a switch for it.
 

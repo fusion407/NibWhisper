@@ -2,7 +2,7 @@
 ## Title: Nib Whisper
 ## Notes: Shared core for Nib. Enable the Leveling Guide, the AI Assistant, or both.
 ## Author: Fusion
-## Version: 0.7.10
+## Version: 0.7.11
 ## Group: NibWhisper
 ## IconTexture: Interface\Icons\INV_Misc_Fish_02
 ## X-Website: https://github.com/fusion407/NibWhisper
