@@ -1,0 +1,29 @@
+name: Release
+
+# Pushing a tag such as v0.7.5 builds the CurseForge zip and attaches it to a GitHub release.
+# The zip holds the core and the AI Assistant. The Leveling Guide's route data is not in this repository.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check the tag matches the addon version
+        run: |
+          version="$(grep -m1 '^## Version:' addon/NibWhisper/NibWhisper.toc | awk '{print $3}' | tr -d '\r')"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then echo "Tag $GITHUB_REF_NAME does not match addon version $version"; exit 1; fi
+      - name: Build the zip
+        run: node tools/package-curseforge.mjs
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/NibWhisper-*.zip --title "Nib Whisper $GITHUB_REF_NAME" --notes "See CHANGELOG.md."

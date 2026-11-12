@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "edition": "World of Warcraft: Forever",
+  "asOf": "2026-11-10",
+  "description": "Small original factual seed, not a Wowhead mirror or exhaustive corpus. Current character state and source retrieval remain necessary.",
+  "entries": [
+    {
+      "id": "forever-identity",
+      "title": "Forever is its own version",
+      "tags": [
+        "forever",
+        "classic",
+        "version",
+        "lore"
+      ],
+      "text": "Forever is Blizzard's permanent branch alongside Modern and Classic, built around an expanded original Azeroth and level-60 progression.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-gb/article/24302093/carve-a-new-path-with-world-of-warcraft-forever",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-timeline",
+      "title": "Early Azeroth timeline",
+      "tags": [
+        "lore",
+        "roleplay",
+        "timeline"
+      ],
+      "text": "Forever starts in the early original-world period, before the Dark Portal's reopening and later Northrend journeys. Later-expansion lore is not automatically current Forever lore.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-us/article/24315643/return-to-azeroth-in-world-of-warcraft-forever",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-new-content",
+      "title": "Changed leveling world",
+      "tags": [
+        "quests",
+        "leveling",
+        "dungeons",
+        "zones"
+      ],
+      "text": "The 1–60 world adds more than 1,000 quests and nine new five-player dungeons spanning levels 13–60. Old Classic routes and database facts need Forever verification.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-us/article/24315643/return-to-azeroth-in-world-of-warcraft-forever",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-profession-slots",
+      "title": "Profession choices",
+      "tags": [
+        "professions",
+        "cooking",
+        "fishing",
+        "first aid"
+      ],
+      "text": "Characters can learn two primary professions and all three secondary professions: Cooking, Fishing and First Aid.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-us/article/24301516/gather-around-the-campfire-in-world-of-warcraft-forever",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-camp-recipes",
+      "title": "Camp profession features",
+      "tags": [
+        "camping",
+        "professions",
+        "recipes"
+      ],
+      "text": "Initial profession camp features become available at skill 20 through starter quests or trainers. Advanced features requiring skill 140 or more come from dungeon and raid drops.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-us/article/24301516/gather-around-the-campfire-in-world-of-warcraft-forever",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-new-recipes",
+      "title": "Forever recipe differences",
+      "tags": [
+        "recipes",
+        "professions",
+        "blueprints"
+      ],
+      "text": "Forever adds over 600 profession recipes, adjusted crafted food and advanced Blueprints from dungeon bosses.",
+      "sources": [
+        {
+          "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap",
+          "type": "official"
+        }
+      ]
+    },
+    {
+      "id": "forever-first-aid-potions",
+      "title": "Healing potion crafting",
+      "tags": [
+        "first aid",
+        "alchemy",
+        "healing potion",
+        "professions"
+      ],
+      "text": "Wowhead's Forever profession overview, updated November 7, 2026 for Patch 1.60.1, places healing-potion crafting in First Aid. Do not reuse an Era Alchemy recipe list without checking.",
+      "sources": [
+        {
+          "url": "https://www.wowhead.com/forever/guide/professions/overview",
+          "type": "database-editorial"
+        }
+      ]
+    },
+    {
+      "id": "loot-statistics",
+      "title": "Drop percentages are observations",
+      "tags": [
+        "drop",
+        "rate",
+        "loot",
+        "chance"
+      ],
+      "text": "Wowhead builds loot statistics from aggregated player observations. A cited drop percentage is an estimate, not a guaranteed number of kills. No exact Forever drop rates are included in this seed.",
+      "sources": [
+        {
+          "url": "https://www.wowhead.com/news/help-contribute-to-the-wowhead-database-wowhead-client-looter-highlight-338456",
+          "type": "publisher-methodology"
+        }
+      ]
+    },
+    {
+      "id": "forever-wowhead-tools",
+      "title": "Forever lookup tools",
+      "tags": [
+        "stuck",
+        "quest",
+        "profession",
+        "planning"
+      ],
+      "text": "Wowhead offers dedicated Forever quest-unstuck and profession-leveling tools. Opening these links does not mean this assistant has access to their interactive character data.",
+      "sources": [
+        {
+          "url": "https://www.wowhead.com/forever/quest-unstuck",
+          "type": "tool"
+        },
+        {
+          "url": "https://www.wowhead.com/forever/profession-leveling-guides",
+          "type": "tool"
+        }
+      ]
+    }
+  ],
+  "retrievalRules": [
+    "Use Forever sources and qualify outdated or cross-version evidence.",
+    "Treat missing quest telemetry as unknown rather than proof of completion.",
+    "Do not invent drop rates, availability, route speed or profession material totals.",
+    "Do not bulk scrape or claim an exhaustive Wowhead corpus.",
+    "Cite retrieved URLs and preserve uncertainty when source content is unavailable."
+  ]
+}

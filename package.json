@@ -1,0 +1,20 @@
+{
+  "name": "nib-whisper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:knowledge": "node tools/build-knowledge.mjs",
+    "build:assets": "node tools/build-mascot.mjs",
+    "build:slots": "node tools/build-reply-slots.mjs",
+    "test": "node --test tests/*.test.mjs companion/test/*.test.mjs",
+    "package:curseforge": "node tools/package-curseforge.mjs",
+    "start": "node companion/server.mjs"
+  },
+  "devDependencies": {
+    "fengari": "0.1.5"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

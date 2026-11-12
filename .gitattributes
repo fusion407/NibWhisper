@@ -1,0 +1,10 @@
+* text=auto
+*.lua text eol=lf
+*.toc text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.ttf binary
+*.tga binary
+*.mp3 binary
+*.ogg binary
+*.zip binary

@@ -1,0 +1,15 @@
+## Interface: 16001, 11509
+## Title: Nib Whisper: Leveling Guide
+## Notes: Nib Trail, the 1-60 leveling guide. Works with or without the AI Assistant.
+## Author: Fusion
+## Version: 0.7.5
+## Group: NibWhisper
+## IconTexture: Interface\Icons\INV_Misc_Fish_02
+## X-Website: https://github.com/fusion407/NibWhisper
+## Dependencies: NibWhisper
+## OptionalDeps: TomTom
+
+TrailData.lua
+QuestLinks.lua
+Trail.lua
+TrailSync.lua

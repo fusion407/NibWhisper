@@ -1,0 +1,16 @@
+## Interface: 16001, 11509
+## Title: Nib Whisper
+## Notes: Shared core for Nib. Enable the Leveling Guide, the AI Assistant, or both.
+## Author: Fusion
+## Version: 0.7.5
+## Group: NibWhisper
+## IconTexture: Interface\Icons\INV_Misc_Fish_02
+## X-Website: https://github.com/fusion407/NibWhisper
+## OptionalDeps: RXPGuides, TomTom
+## SavedVariables: NibWhisperDB
+## SavedVariablesPerCharacter: NibWhisperCharDB
+
+Protocol.lua
+Context.lua
+UI.lua
+Core.lua

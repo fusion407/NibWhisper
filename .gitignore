@@ -1,0 +1,41 @@
+# Dependencies, caches and build output
+.npm-cache/
+node_modules/
+companion/node_modules/
+companion/.eve/
+companion/.output/
+dist/
+test-results/
+*.log
+*.tmp
+
+# Secrets and machine-specific settings
+companion/.env
+companion/data/gemini-key.local
+companion/data/*.key.tmp
+companion/data/bridge-settings.json
+companion/data/conversations*
+
+# RestedXP material. The route data, the guide index and the starter steps are built from guides this project
+# does not own, so they stay on the machine that has them. Rebuild with tools/build-trail.mjs and
+# tools/build-knowledge.mjs from your own installed guides.
+addon/NibWhisper_Guide/TrailData.lua
+companion/data/guide-index.json
+companion/data/trail-starters.json
+forever_guide_*.txt
+evidence-snapshot/
+import-evidence*.json
+import-evidence*.zip
+rea-artifact-evidence.json
+
+# Game audio that is not this project's to redistribute. Put your own file here; the guide plays it if present.
+addon/NibWhisper_Guide/Sounds/*.mp3
+addon/NibWhisper_Guide/Sounds/*.ogg
+
+# Generated at install time or by a build tool
+addon/NibWhisperReply*/
+addon/NibWhisper_Assistant/Fonts/R[0-9][0-9][0-9][0-9].ttf
+
+# The eve scaffold created its own one-commit repository inside companion/. It was moved here, untouched, so the
+# helper's files can live in this repository. Safe to delete.
+.companion-scaffold-git/
