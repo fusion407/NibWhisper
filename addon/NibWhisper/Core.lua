@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.9"
+addon.VERSION = "0.7.10"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}
@@ -144,6 +144,13 @@ function addon:SetChatMode(mode)
     end
 end
 
+-- Nib's own "mrrgl" when an answer arrives, from the AI or from guide chat. Errors and timeouts stay silent.
+addon.replySound = "Interface\\AddOns\\NibWhisper_Assistant\\Sounds\\murloc.mp3"
+function addon:ReplySound()
+    if self.db and self.db.replySound == false then return end
+    C.Call(PlaySoundFile, self.replySound, "Master")
+end
+
 function addon:GuideAnswer(question)
     local query = question:lower()
     if query:find("profession", 1, true) or query:find("skill rank", 1, true) then
@@ -203,6 +210,7 @@ function addon:Ask(text)
     self:Remember("system", answer)
     UI:SetReply({answer = answer})
     self:Notice("Guide chat · using your current game data")
+    if ok then self:ReplySound() end
     return true
 end
 
@@ -338,6 +346,7 @@ function addon:ImportReply(packet, silent)
     self:Remember("assistant", reply.answer)
     UI:SetReply(reply)
     self:Notice("AI reply received")
+    self:ReplySound()
     if UI.chat and not UI.chat:IsShown() then UI:ShowChat() end
     return true, reply
 end
@@ -472,7 +481,7 @@ function addon:Initialize()
     if type(NibWhisperCharDB) ~= "table" then NibWhisperCharDB = {} end
     self.db, self.charDB = NibWhisperDB, NibWhisperCharDB
     self.db.opticalEnabled = self.db.opticalEnabled == true
-    -- 0.6.1 to 0.7.9 could switch a linked player to copy and paste at login. Put automatic mode back once.
+    -- 0.6.1 to 0.7.10 could switch a linked player to copy and paste at login. Put automatic mode back once.
     if self.db.geminiLinked == nil and self.Optical then
         if self.db.chatMode == "manual" or self.db.chatMode == "automatic" or self.db.opticalEnabled then
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true

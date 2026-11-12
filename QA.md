@@ -1,4 +1,4 @@
-# Nib Trail 0.7.9 in-game QA
+# Nib Trail 0.7.10 in-game QA
 
 ## Desktop: first five minutes
 
@@ -34,6 +34,8 @@
 19. New in 0.7.8. Play through a few steps without clicking Done: a step whose objective you already finished should be passed over, and a multi-part quest should show a "so far" line listing every part. Take a flight, hearth, and learn a flight path on steps that ask for them and check each ticks itself. Click a row in the step list to browse, then finish that step or hand in a quest and check the guide resumes. Use the checkboxes in the step list to skip the current step, skip past the next, and go back.
 
 20. New in 0.7.9. On a step that only says to travel somewhere, walk there and check the step finishes by itself when you arrive. Check the guide text reads as before, with no reworded instructions, and that Nib Options no longer has a wording switch.
+
+21. New in 0.7.10. Click **Quest log** in Nib chat and check the reply sound plays. Ask an AI question and check it plays when the answer arrives, and not when a request fails. Switch **Reply sound** off and on in Nib Options; switching it on previews the sound.
 
 ## Desktop → laptop → desktop
 

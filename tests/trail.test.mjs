@@ -120,7 +120,22 @@ test('the AI assistant works with the leveling guide switched off',()=>{
  A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton')
  local o=A.UI.options;assert(o:IsShown() and o.modes and o.mascot and o.scale and not o.advance and not o.quests)
  assert(A:Ask('What should I do next?') and A.UI.lastReply.answer:find('Leveling Guide',1,true),A.UI.lastReply.answer)
+ -- Nib's reply sound plays when an answer arrives, from guide chat or the AI, and not for errors or when switched off.
+ local sounds={}
+ function PlaySoundFile(file,channel) sounds[#sounds+1]=file..'|'..channel end
  assert(A:Ask('What quests am I on?') and A.UI.lastReply.answer:find('Kobold Camp Cleanup',1,true))
+ assert(#sounds==1 and sounds[1]=='Interface\\\\AddOns\\\\NibWhisper_Assistant\\\\Sounds\\\\murloc.mp3|Master',sounds[1])
+ local P=A.Protocol
+ local function answer(extra) local r={schema=1,requestId='sound-1',capturedAt=1794333600};for k,v in pairs(extra) do r[k]=v end;return P.EncodePacket('NIBR1',r) end
+ A.pending={requestId='sound-1',capturedAt=1794333600}
+ assert(A:ImportReply(answer({error='Gemini is busy right now.'}),true) and #sounds==1,'an error is silent')
+ assert(A:ImportReply(answer({answer='Mrrgl! North it is.',mood='happy',intent='advice',sources=P.Array(),actions=P.Array()})) and #sounds==2,'an AI answer plays it')
+ assert(not A:Ask('') and #sounds==2,'a question that was refused is silent')
+ A.UI:RefreshOptions();assert(A.UI.options.replySound:GetText()=='Reply sound: on')
+ A.UI.options.replySound.scripts.OnClick();assert(A.db.replySound==false and A.UI.options.replySound:GetText()=='Reply sound: off' and #sounds==2)
+ assert(A:Ask('What quests am I on?') and #sounds==2,'the Options switch silences it')
+ A.UI.options.replySound.scripts.OnClick();assert(A.db.replySound==true and #sounds==3,'switching it back on previews the sound')
+ A.db.replySound=nil
  A.Test.Slash('trail');A.eventFrame.scripts.OnEvent(nil,'QUEST_DETAIL');A.eventFrame.scripts.OnUpdate(nil,.3)
  -- Linking Gemini once is remembered at every later login, and a player left on copy and paste by 0.6.1-0.6.4 is put back.
  A.db.chatMode='manual';A.db.opticalEnabled=false;A.db.geminiLinked=nil

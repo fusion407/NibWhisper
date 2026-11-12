@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.10
+- Nib plays a sound when an answer arrives, from guide chat or the AI. Nib Options has a switch for it.
+
 ## 0.7.9
 - A "travel to" step now finishes when you arrive, including while you are browsing steps.
 - Steps that should be skipped when you are already in an area now recognise the area.

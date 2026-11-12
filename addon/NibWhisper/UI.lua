@@ -567,7 +567,15 @@ function UI:ShowOptions()
         end
         label(f, "DISPLAY", "TOPLEFT", 20, y); y = y - 20
         f.scale = control("", 1, function() UI:CycleScale(); UI:RefreshOptions() end)
-        if assistant then f.mascot = control("", 2, function() UI:ToggleMascot(); UI:RefreshOptions() end) end
+        if assistant then
+            f.mascot = control("", 2, function() UI:ToggleMascot(); UI:RefreshOptions() end)
+            y = y - 33
+            f.replySound = control("", 1, function()
+                addon.db.replySound = addon.db.replySound == false
+                if addon.db.replySound then addon:ReplySound() end
+                UI:RefreshOptions()
+            end)
+        end
         f:SetHeight(43 - y)
         if UISpecialFrames then table.insert(UISpecialFrames, "NibWhisperOptions") end
     elseif self.options:IsShown() then self.options:Hide(); return end
@@ -590,6 +598,7 @@ function UI:RefreshOptions()
     end
     if f.mascot then f.mascot:SetText(addon.db.mascotVisible == true and "Hide Nib Himself" or "Show Nib Himself") end
     f.scale:SetText(string.format("Window size: %d%%", math.floor(self:GetScale() * 100 + 0.5)))
+    if f.replySound then f.replySound:SetText(addon.db.replySound == false and "Reply sound: off" or "Reply sound: on") end
     if f.selected then
         f.selected:SetText(({localGuide = "Selected: Guide chat\nUses the live guide and quest log.", automatic = "Selected: AI automatic\nKeep the companion open.", manual = "Selected: AI copy and paste\nSend through the companion page."})[addon:GetChatMode()])
     end

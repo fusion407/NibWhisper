@@ -152,7 +152,7 @@ Before the first upload:
 5. **Check CurseForge's rules for the helper bridge.** Automatic mode passes data between the game and a local program through an on-screen signal and font files. Read their addon policy, and Blizzard's, before describing or shipping that feature there.
 6. **Upload** the zip from `dist`, pick the game versions matching `## Interface`, and paste the section for that version from `CHANGELOG.md`.
 
-The sound played at the end of a chapter is also not in the repository or the zip. Put your own file at `addon/NibWhisper_Guide/Sounds/jobs_done.mp3`.
+The two sounds are also not in the repository or the zip. Put your own files at `addon/NibWhisper_Guide/Sounds/jobs_done.mp3` (end of a chapter) and `addon/NibWhisper_Assistant/Sounds/murloc.mp3` (Nib replies). Nib stays silent if a file is missing.
 
 ## Verification and source map
 

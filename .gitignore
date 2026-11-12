@@ -39,3 +39,7 @@ addon/NibWhisper_Assistant/Fonts/R[0-9][0-9][0-9][0-9].ttf
 # The eve scaffold created its own one-commit repository inside companion/. It was moved here, untouched, so the
 # helper's files can live in this repository. Safe to delete.
 .companion-scaffold-git/
+
+# The reply sound is game audio too, and stays local for the same reason.
+addon/NibWhisper_Assistant/Sounds/*.mp3
+addon/NibWhisper_Assistant/Sounds/*.ogg
