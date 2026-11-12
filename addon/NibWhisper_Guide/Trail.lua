@@ -41,7 +41,22 @@ local function routeText(raw)
         end
         return ""
     end)
-    return (text(raw):gsub("~NIB(%d+)~", function(index) return markup[tonumber(index)] or "" end))
+    local shown = text(raw):gsub("~NIB(%d+)~", function(index) return markup[tonumber(index)] or "" end)
+    -- Some source lines open a colour and never close it, or close one that was never opened.
+    -- Walk the colour codes in order: drop a close with nothing open, and close whatever is left at the end.
+    local parts, depth, at = {}, 0, 1
+    while true do
+        local from, to = shown:find("|[cr]", at)
+        if not from then parts[#parts + 1] = shown:sub(at); break end
+        parts[#parts + 1] = shown:sub(at, from - 1)
+        if shown:sub(to, to) == "r" then
+            if depth > 0 then depth = depth - 1; parts[#parts + 1] = "|r" end
+            at = to + 1
+        elseif shown:find("^%x%x%x%x%x%x%x%x", to + 1) then
+            depth = depth + 1; parts[#parts + 1] = shown:sub(from, to + 8); at = to + 9
+        else parts[#parts + 1] = shown:sub(from, to); at = to + 1 end
+    end
+    return table.concat(parts) .. string.rep("|r", depth)
 end
 local function split(s, separator)
     local r={}; for x in s:gmatch("[^"..separator.."]+") do r[#r+1]=trim(x) end; return r
@@ -112,6 +127,8 @@ function T.Parse(raw)
                 if k then s.flags[#s.flags+1]={kind=k:lower(),value=v,condition=filter} end
             else
                 local left,desc=body:match("^(.-)%s*>>%s*(.*)$")
+                -- A few source lines carry a second ">>" inside the sentence. It is a separator, not text for the player.
+                if desc then desc=desc:gsub("%s*>>%s*"," ") end
                 local tag,args=trim(left or body):match("^%.([%w]+)%s*(.*)$")
                 if tag then
                     local kind = tag:lower()
@@ -894,7 +911,7 @@ function T:RefreshPreview(g, s, p, q, current)
             local v = offset == 0 and 0.94 or 0.56
             row.caption:SetTextColor(v,v,offset == 0 and 1 or 0.66)
         else
-            row.caption:SetText(offset == 0 and (g and "Chapter complete" or "Click the banner to choose a route") or "")
+            row.caption:SetText(offset == 0 and (g and "Chapter complete. Mrrgl!" or "Click the banner to choose a route") or "")
         end
     end
 end
@@ -1007,7 +1024,7 @@ function T:Refresh(p, q)
         self.stepTag:SetText("Nib Trail"); self.nav:SetText(""); self.currentPoint = nil; self.routePoints = {}; self:Pin(nil)
         self.progress:Hide()
         self:RefreshPreview()
-        self:RenderRows({"Click the map or route banner to choose a chapter."})
+        self:RenderRows({"Mrrgl! No route yet. Click the map or the banner and I'll unfold a chapter for you."})
         return
     end
     self.title:SetText(text(g.title))
@@ -1037,10 +1054,11 @@ function T:Refresh(p, q)
             points[#lines] = r.linePoints[i]
             links[#lines] = r.links[i]
         end
-        if #lines == 0 then lines[1] = "Route marker. There is no player action here. Click Done to continue." end
+        if #lines == 0 then lines[1] = "Just a mark on my map. Nothing to do here, so click Done and we'll paddle on." end
     else
         local nextGuide = self:NextChapter(g)
-        lines[1] = nextGuide and ("Chapter complete. Next: " .. text(nextGuide.title)) or "Chapter complete. Choose another chapter from Routes."
+        lines[1] = nextGuide and ("Chapter complete, and not one map lost to pond water. Next: " .. text(nextGuide.title))
+            or "Chapter complete! Pick another chapter from Routes when your flippers are rested."
     end
     for _, i in ipairs(s.sticky or {}) do
         if i < s.step then

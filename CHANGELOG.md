@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.6
+- Guide text: stray separators no longer show in steps, and colours that were left open or closed twice are tidied.
+- Nib speaks in a few of the guide's own messages.
+- Simpler setup: drag the folders in, then start the helper, which finds the game and prepares its reply files.
+
 ## 0.7.5
 - Nib himself can be resized by a grip in his corner.
 - The quest details card has a View in quest log button.

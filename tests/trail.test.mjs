@@ -290,6 +290,11 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  local reply={schema=1,requestId=request.requestId,capturedAt=request.capturedAt,character=request.character,state=request.state}
  reply.requestId='wrong';assert(not T:ImportSync(A.Protocol.EncodePacket('NIBP1',reply)))
  reply.requestId=request.requestId;assert(T:ImportSync(A.Protocol.EncodePacket('NIBP1',reply)));assert(not A.pending)
+ -- Display fixes found by scanning every step: a second ">>" is not shown, and an unclosed colour is closed.
+ local messy=T.Parse('step\\n>> Clear a path first. >>This fight is hard\\n>> Kill |cRXP_ENEMY_Withered Protectors and loot them')
+ assert(messy.entries[1].desc=='Clear a path first. This fight is hard',messy.entries[1].desc)
+ local _,opened=messy.entries[2].display:gsub('|c%x%x%x%x%x%x%x%x','');local _,closed=messy.entries[2].display:gsub('|r','')
+ assert(opened==1 and closed==1 and messy.entries[2].desc=='Kill Withered Protectors and loot them',messy.entries[2].display)
  assert(T.Matches('Horde/Alliance Paladin !Mage',T.Profile())==true)
  assert(T.Matches('new_unknown_tag',T.Profile())==nil)
  assert(T.Point('1429,42.5,33.25').x==42.5)

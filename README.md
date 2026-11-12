@@ -1,17 +1,42 @@
 # Nib Whisper
 
-Nib is a small, goofy murloc cartographer for **World of Warcraft: Forever**. Click his minimap button to show or hide him; click Nib to open his chat. He blinks, carries a tiny map, and occasionally has an opinion about snacks.
+Nib is a small, goofy murloc cartographer for **World of Warcraft: Forever**. He comes as a 1–60 leveling guide with quest tracking and TomTom waypoints, and as an in-game chat companion that answers Warcraft questions with Google Gemini.
 
-The Lua addon includes Nib Trail and built-in Guide chat. The local companion connects to **Google Gemini or OpenAI** for open-ended Warcraft questions.
+## Install
 
-## Start here
+### 1. Download
 
-1. For a fresh Windows install, run `Install-Nib.ps1 -Optical -Background`. It installs Nib and its reply modules and starts Nib Helper at Windows sign-in. **Fully exit and reopen WoW** after first installing the reply modules.
-2. In WoW, enable **Nib Whisper** and **TomTom** on the character's addon list. Left-click the Nib minimap button to open chat. Try **Next objective**, **Quest log**, or **Professions** in Guide chat. Right-click the minimap button to open Nib Options.
-3. Copy your Gemini key from Google AI Studio. In Nib chat, click **Gemini setup → Use copied key**. Leave the key on your clipboard until Nib confirms it. The helper verifies the key and Nib switches to **AI automatic**. [Google AI Studio API keys](https://aistudio.google.com/apikey)
-4. Ask a question from Nib chat. Click **Leveling guide** in the chat header to jump to the guide.
+On the GitHub page choose **Code → Download ZIP** and unzip it anywhere you like. Keep the folder; Nib's helper runs from it.
 
-Node.js **24 or newer** is required. Dependencies are installed in this workspace. If you move the project or unpack the personal ZIP on another computer, run `npm ci` inside `companion` first. The root `npm ci` is only needed for development tests.
+### 2. Drag and drop
+
+Open the `addon` folder inside it and drag these three folders into `World of Warcraft\_forever_\Interface\AddOns`:
+
+- `NibWhisper`
+- `NibWhisper_Guide`
+- `NibWhisper_Assistant`
+
+Start the game and tick all three on the AddOns list. The leveling guide and Guide chat work from here with nothing else installed. [TomTom](https://www.curseforge.com/wow/addons/tomtom) is optional and adds the waypoint arrow.
+
+### 3. Set up your Gemini key
+
+This step is only for AI answers.
+
+1. Install [Node.js](https://nodejs.org) 24 or newer, once.
+2. Double-click **`Start-Nib-Auto.cmd`** in the folder you unzipped. The first time, it finds your AddOns folder and creates Nib's reply files there. Leave its window open while you play.
+3. Fully exit and reopen the game once, so it sees the reply files.
+4. Get a free key from [Google AI Studio](https://aistudio.google.com/apikey) and copy it.
+5. In the game, left-click Nib's minimap button and choose **Gemini setup → Use copied key**. Keep the key on your clipboard until Nib says **Gemini connected**.
+
+That's it. Nib remembers the link, so from now on you only start `Start-Nib-Auto.cmd` before playing. To have it start by itself when you sign in to Windows, run `Install-Nib.ps1 -Background` once.
+
+### Good to know
+
+- **The route data is not in this repository.** The leveling guide's steps are built from RestedXP guides, which this project does not own, so `NibWhisper_Guide` from a fresh download opens with no routes. Build them from your own installed guides with `node tools/build-trail.mjs`.
+- **If the start script can't find the game**, it asks you to paste the path of your AddOns folder.
+- **Updating:** download again and drag the three folders over the old ones.
+- **Your key stays on your computer**, in `companion/data/gemini-key.local`. It never goes into the game.
+
 
 ## Three addons, two switches
 
@@ -50,16 +75,16 @@ The default works without screen capture:
 
 Each reply matches one pending question and character session. Duplicate, cancelled, and previous-session replies are rejected. Ask new in-game questions to refresh context. Further questions asked only in the browser are marked browser-only and cannot answer an old in-game pending request.
 
-### Optional automatic mode
+### How automatic mode works
 
-This is an **experimental bridge requiring live-client verification**. It uses supported display/addon-file mechanisms rather than direct HTTP from Lua. No game memory is read and no clicks, keystrokes, or gameplay are automated. No Blizzard endorsement has been established.
+Automatic mode is what the install steps above set up. It uses display and addon-file mechanisms instead of direct HTTP from Lua. No game memory is read and no clicks, keystrokes, or gameplay are automated. No Blizzard endorsement has been established.
 
-1. Install with `Install-Nib.ps1 -Optical` and fully restart the client once so the 200 load-on-demand reply modules are discovered. Reply modules load only when Nib asks for them.
-2. Double-click `Start-Nib-Auto.cmd`, or launch `Start-Nib.ps1 -Optical`.
-3. When sending a request, keep WoW in front and its bottom-right corner visible. A small grayscale signal appears until Nib Helper confirms receipt or the request times out.
-4. The helper decodes Nib's signal from that corner. Screen images stay local and are discarded. It returns replies through Nib's preinstalled reply modules. The helper reads the clipboard when you click **Use copied key**. The setup request itself carries no API key.
+1. When you ask a question, a small grayscale signal appears in the bottom-right corner of the game until the helper confirms it has read it. Keep WoW in front with that corner visible.
+2. The helper decodes the signal. Screen images stay on your computer and are discarded.
+3. The helper writes its reply into Nib's reply files, and Nib reads it back by measuring text. Replies are data only; nothing in them is run as code.
+4. The helper reads your clipboard only when you click **Use copied key**. The setup request itself carries no API key.
 
-The helper stops when the companion closes. Its screen-reading loop only operates while a process named `Wow…` is foreground. Display scaling, HDR/gamma, window layout, client updates, and file caching can affect transport; use copy/paste if it fails. Automatic mode uses a finite pool of **200 reply slots** per UI session, including slots consumed while waiting. A `/reload` replenishes the pool and cancels a pending question; ask again afterward. Reply-slot loading is deferred during combat.
+The helper's screen-reading loop only runs while a process named `Wow…` is in the foreground. Display scaling, HDR/gamma, window layout and client updates can affect it; use copy and paste if it fails. Each reply file can be read once per game session, which allows about 250 automatic requests before WoW needs a full restart.
 
 ## What Nib knows about your character
 
