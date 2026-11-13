@@ -437,6 +437,17 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  T:Browse(1);T:Tick(true);assert(at()==1 and T.reviewing,'an unfinished step being browsed stays put')
  active[7]=true;T:Tick(true);assert(not T.reviewing and at()==2,'finishing the browsed step resumes the guide: '..at())
 
+ -- A step that was skipped and later finished is done, not skipped.
+ fixture('step\\n.accept 7 >> Accept Kobold Camp Cleanup','step\\n>> Walk east','step\\n>> Rest here')
+ auto.steps=3;active[7]=false;complete[7]=false;complete[783]=true;A.observedTurnIns[7]=nil;T.state.guides[auto.id].marks=nil
+ T:Write(auto,1,{});T.reviewing=false;T:Tick(true);assert(at()==1)
+ T:Move(1,true);assert(at()==2 and T.state.guides[auto.id].skipped[1]==1,'the quest step is skipped')
+ T:ShowSteps();local listed;for _,row in ipairs(T.stepsFrame.rows) do if row.step==1 then listed=row end end
+ assert(listed.badge:GetText()=='Skipped' and T.stepsFrame.summary:GetText():find('1 skipped',1,true),T.stepsFrame.summary:GetText())
+ active[7]=true;T:Tick(true)
+ assert(#T.state.guides[auto.id].skipped==0 and at()==2,'finishing it clears the skipped mark: '..#T.state.guides[auto.id].skipped)
+ T:ListSteps();assert(listed.badge:GetText()=='Done' and T.stepsFrame.summary:GetText():find('0 skipped',1,true),listed.badge:GetText())
+ T.stepsFrame:Hide();active[7]=false
  -- The step list has a checkbox on each row: skip the current step, skip past the next one, or go back.
  fixture('step\\n>> Walk north','step\\n>> Walk east','step\\n>> Walk south','step\\n>> Walk west','step\\n>> Rest here')
  auto.steps=5;T.state.guides[auto.id].marks=nil;T:Write(auto,2);T.reviewing=false;T:Tick(true)

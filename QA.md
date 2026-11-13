@@ -1,4 +1,4 @@
-# Nib Trail 0.7.12 in-game QA
+# Nib Trail 0.7.13 in-game QA
 
 ## Desktop: first five minutes
 
@@ -40,6 +40,8 @@
 22. New in 0.7.11. With Nib enabled, target an enemy and run a macro with `/tm 8`. The skull should appear with no blocked-action error. Try RestedXP's Active Targets panel as well.
 
 23. New in 0.7.12. Open **Targets** on a step with named enemies. Click a name to target it, then the skull and the cross beside it; each should target that enemy and place its marker, and a second click should remove it. Drag the corner to resize the window, and check it refuses during combat while the buttons still work. Open **Steps**: the current step should be marked, past steps say Done or Skipped, and the mouse wheel and Show my step should move the list.
+
+24. New in 0.7.13. Skip a quest step, then go back and finish it. Open **Steps**: that step should say Done, and the skipped count in the header should go down by one.
 
 ## Desktop → laptop → desktop
 

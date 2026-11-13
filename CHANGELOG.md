@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.13
+- A step you skipped and later finished now shows as Done in the step list, and no longer counts as skipped.
+
 ## 0.7.12
 - Nib Targets has skull and cross buttons beside each name: one click targets the enemy and places the marker. The window has a new look and can be resized outside combat.
 - The step list is redesigned: step numbers, a status for each step (You are here, Done, Skipped, Not for you), a full-text tooltip, mouse-wheel scrolling and a Show my step button.

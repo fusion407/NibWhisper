@@ -698,6 +698,13 @@ function T:Advance(p,q)
     local g,s=self:Current();if not g or not s or self:Eligible(g,p)==false then return end
     local chapter=self:Chapter(g);local i=s.step;local sticky=P.Array();local skippedSet={};local mutated=false
     local reasons = {}
+    -- A step you skipped and came back to finish is no longer skipped: it is done.
+    local stillSkipped,pruned=P.Array(),false
+    for _,idx in ipairs(s.skipped or {}) do
+        local r=self:Evaluate(g,idx,p,q)
+        if r and r.complete then pruned=true else stillSkipped[#stillSkipped+1]=idx end
+    end
+    if pruned then s.skipped=stillSkipped end
     for _,idx in ipairs(s.skipped or {}) do skippedSet[idx]=true end
     local function keep(idx,r)
         if not r or r.skip or r.complete or skippedSet[idx] then return end
@@ -725,7 +732,7 @@ function T:Advance(p,q)
     if i~=s.step then
         self.skipNotice = #reasons>0 and {key=g.id .. ":" .. i, first=reasons[1], count=#reasons} or nil
     end
-    if i~=s.step or #sticky~=#(s.sticky or {}) then self:Write(g,i,s.skipped,sticky);mutated=true end
+    if pruned or i~=s.step or #sticky~=#(s.sticky or {}) then self:Write(g,i,s.skipped,sticky);mutated=true end
     if s.step<=g.steps and i>g.steps then self:ChapterFinished() end
     return mutated
 end
@@ -1778,15 +1785,19 @@ function T:ListSteps()
     local f = self.stepsFrame
     if not g or not f then return end
     f.from = math.max(1, math.min(f.from, g.steps))
+    local p, q = self.Profile(), quests()
+    p.memo = {}
+    -- A skipped step that has since been finished counts as done, not skipped.
     local skip, skippedCount = {}, 0
-    for _, i in ipairs(s.skipped or {}) do skip[i] = true; skippedCount = skippedCount + 1 end
+    for _, i in ipairs(s.skipped or {}) do
+        local r = self:Evaluate(g, i, p, q)
+        if not (r and r.complete) then skip[i] = true; skippedCount = skippedCount + 1 end
+    end
     f.title:SetText(text(g.title))
     local current = math.min(s.step, g.steps)
     f.summary:SetText(s.step > g.steps and string.format("Chapter complete  ·  %d steps", g.steps)
         or string.format("Step %d of %d  ·  %d%% through  ·  %d skipped", s.step, g.steps, math.floor((s.step - 1) / g.steps * 100), skippedCount))
     f.range:SetText(string.format("Steps %d–%d of %d", f.from, math.min(g.steps, f.from + STEP_ROWS - 1), g.steps))
-    local p, q = self.Profile(), quests()
-    p.memo = {}
     for i, row in ipairs(f.rows) do
         local n = f.from + i - 1
         local r = n <= g.steps and self:Evaluate(g, n, p, q)
@@ -1799,7 +1810,8 @@ function T:ListSteps()
                 lines[#lines + 1] = line
             end
             row.lines = lines
-            local state = n == current and s.step <= g.steps and stepStates.current or skip[n] and stepStates.skipped
+            local state = n == current and s.step <= g.steps and stepStates.current
+                or r.complete and n ~= s.step and stepStates.done or skip[n] and stepStates.skipped
                 or r.skip and stepStates.inactive or n < s.step and stepStates.done or stepStates.ahead
             row.number:SetText(n)
             row.number:SetTextColor(state.text * 0.8, state.text * 0.85, state.text)
