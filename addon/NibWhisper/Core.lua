@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.11"
+addon.VERSION = "0.7.12"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}
@@ -481,7 +481,7 @@ function addon:Initialize()
     if type(NibWhisperCharDB) ~= "table" then NibWhisperCharDB = {} end
     self.db, self.charDB = NibWhisperDB, NibWhisperCharDB
     self.db.opticalEnabled = self.db.opticalEnabled == true
-    -- 0.6.1 to 0.7.11 could switch a linked player to copy and paste at login. Put automatic mode back once.
+    -- 0.6.1 to 0.7.12 could switch a linked player to copy and paste at login. Put automatic mode back once.
     if self.db.geminiLinked == nil and self.Optical then
         if self.db.chatMode == "manual" or self.db.chatMode == "automatic" or self.db.opticalEnabled then
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true

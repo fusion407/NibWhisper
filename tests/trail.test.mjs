@@ -193,7 +193,20 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  for _, row in ipairs(T.rows) do if row.point and row.control and row.control.kind=='accept' then waypointRow=row;break end end
  assert(waypointRow and waypointRow.destination:IsShown())
  waypointRow.destination.scripts.OnClick();assert(T.clickedPoint==waypointRow.point or T.clickedPoint.x==waypointRow.point.x)
- T:ShowTargets(); assert(T.targetWindow.rows[1].attributes.macrotext=='/targetexact Deputy Willem')
+ T:ShowTargets()
+ local tw=T.targetWindow;local first=tw.rows[1]
+ assert(first.target.attributes.macrotext=='/targetexact Deputy Willem' and first.target.caption:GetText()=='Deputy Willem')
+ -- Skull and cross buttons target the enemy and place the marker.
+ assert(first.marks[1].attributes.macrotext=='/targetexact Deputy Willem\\n/tm 8',first.marks[1].attributes.macrotext)
+ assert(first.marks[2].attributes.macrotext=='/targetexact Deputy Willem\\n/tm 7')
+ assert(first:IsShown() and not tw.rows[2]:IsShown() and not tw.empty:IsShown() and tw.subtitle:GetText():find('Step 5',1,true))
+ -- Resizing: the window shows as many names as fit, says how many are hidden, and cannot be resized in combat.
+ tw.names={'A1','A2','A3','A4','A5','A6'};tw:SetHeight(180);T:LayoutTargets()
+ assert(tw.rows[2]:IsShown() and tw.rows[3]:IsShown() and not tw.rows[4]:IsShown() and tw.more:GetText():find('+3 more',1,true),tw.more:GetText())
+ tw:SetHeight(330);T:LayoutTargets();assert(tw.rows[6]:IsShown() and not tw.rows[7]:IsShown() and tw.more:GetText()=='')
+ local grip;for _,child in ipairs(tw.children or {}) do grip=child end
+ combat=true;tw:SetHeight(150);T:LayoutTargets();assert(tw.rows[6]:IsShown(),'nothing on a window with secure buttons changes during combat');combat=false
+ T:ShowTargets();assert(not tw.rows[2]:IsShown(),'reopening lists the step names again')
  -- Quest automation acts only on the quest the visible step names, and only when switched on.
  local questCalls={}
  C_GossipInfo={GetActiveQuests=function() return {} end,GetAvailableQuests=function() return {{questID=999},{questID=783}} end,SelectAvailableQuest=function(id) questCalls[#questCalls+1]='select '..id end}
@@ -294,7 +307,19 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(removed and removed.from=='NibTrail')
  T:Move(1,true);g,s=T:Current();assert(s.step==8 and s.skipped[1]==7)
  T:Move(-1,false);T:Tick(true);g,s=T:Current();assert(s.step==7 and T.reviewing)
- T:ShowSteps(); T:ShowLibrary(); T:ShowSync()
+ T:ShowSteps()
+ -- The step list: one row per step with its number, its text and where you stand on it.
+ local sf=T.stepsFrame;local cur;for _,row in ipairs(sf.rows) do if row.step==7 then cur=row end end
+ assert(cur and cur.badge:GetText()=='You are here' and cur.accent:IsShown() and cur.number:GetText()==7,'the current step is marked')
+ assert(sf.summary:GetText():find('Step 7 of',1,true) and sf.range:GetText():find('Steps 4',1,true),sf.range:GetText())
+ for _,row in ipairs(sf.rows) do
+   if row.step and row.step<7 then assert(row.badge:GetText()=='Done' or row.badge:GetText()=='Skipped' or row.badge:GetText()=='Not for you',row.badge:GetText()) end
+   if row.step and row.step>7 then assert(row.badge:GetText()=='' or row.badge:GetText()=='Not for you' or row.badge:GetText()=='Skipped') end
+   assert(not (row.caption:GetText() or ''):find('^%[',1),'no bracket tags in the list')
+ end
+ sf.scripts.OnMouseWheel(sf,-1);assert(sf.from==7,'the wheel moves three steps')
+ sf.scripts.OnMouseWheel(sf,1);sf.scripts.OnMouseWheel(sf,1);sf.scripts.OnMouseWheel(sf,1);assert(sf.from==1)
+ T:ShowLibrary(); T:ShowSync()
  local exported=T:ExportProgress();assert(exported:sub(1,6)=='NIBT1:')
  local d=A.Protocol.DecodePacket('NIBT1',exported);d.character='Player-123-0BAD';assert(not T:ImportProgress(A.Protocol.EncodePacket('NIBT1',d)))
  d.character=T:Character();d.state.guides[g.id].step=10;d.state.guides[g.id].at=s.at+10

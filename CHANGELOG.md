@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.12
+- Nib Targets has skull and cross buttons beside each name: one click targets the enemy and places the marker. The window has a new look and can be resized outside combat.
+- The step list is redesigned: step numbers, a status for each step (You are here, Done, Skipped, Not for you), a full-text tooltip, mouse-wheel scrolling and a Show my step button.
+
 ## 0.7.11
 - Fixed: macros and slash commands such as /tm 8 were blocked with an "addon blocked" error blamed on Nib. Nib had reassigned the game's slash-command table, which tainted every slash command.
 

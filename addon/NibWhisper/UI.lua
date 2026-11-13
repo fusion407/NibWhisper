@@ -196,7 +196,10 @@ function UI:ResizeGrip(frame, settings, minWidth, minHeight, maxWidth, maxHeight
         if frame.afterResize then frame.afterResize() end
     end
     grip:SetScript("OnMouseDown", function(_, key)
-        if key == "LeftButton" then grip.sizing = true; frame:StartSizing("BOTTOMRIGHT") end
+        if key ~= "LeftButton" then return end
+        -- A window with secure buttons (Nib Targets) cannot change size during combat.
+        if frame.lockedInCombat and InCombatLockdown and InCombatLockdown() then addon:Notice("Resize this window after combat.", true); return end
+        grip.sizing = true; frame:StartSizing("BOTTOMRIGHT")
     end)
     grip:SetScript("OnMouseUp", stop)
     grip:SetScript("OnHide", stop)

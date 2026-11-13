@@ -1404,8 +1404,8 @@ function T:RestoreAfterDeath()
     if self.keepVisible then self.restoreUntil = (call(GetTime) or 0) + 5 end
 end
 
-function T:ShowTargets()
-    if call(InCombatLockdown) then A:Notice("Open Nib Targets after combat.", true); return end
+-- Names the current step (and its side steps) asks you to find.
+function T:TargetNames()
     local names, seen = {}, {}
     local g, s = self:Current()
     if g and s then
@@ -1419,35 +1419,116 @@ function T:ShowTargets()
         append(s.step)
         for _, step in ipairs(s.sticky or {}) do if step < s.step then append(step) end end
     end
+    return names, s and s.step
+end
+
+local markers = {
+    {index = 8, name = "skull", icon = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8"},
+    {index = 7, name = "cross", icon = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_7"},
+}
+local TARGET_ROW, TARGET_GAP, TARGET_TOP, TARGET_BOTTOM = 26, 3, 62, 26
+
+-- A small secure button: one click targets the named enemy and runs the macro text.
+local function secureButton(parent)
+    local b = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
+    b:RegisterForClicks("AnyUp", "AnyDown")
+    b:SetAttribute("type", "macro")
+    return b
+end
+
+-- Shows as many names as fit the window. Only called outside combat: secure buttons cannot be shown,
+-- hidden or moved during combat, which is why the window cannot be resized then either.
+function T:LayoutTargets()
+    local f = self.targetWindow
+    if not f or call(InCombatLockdown) then return end
+    local names = f.names or {}
+    local fit = math.max(1, math.floor((f:GetHeight() - TARGET_TOP - TARGET_BOTTOM + TARGET_GAP) / (TARGET_ROW + TARGET_GAP)))
+    local shown = math.min(#names, fit)
+    for i, row in ipairs(f.rows) do row:SetShown(i <= shown) end
+    f.empty:SetShown(#names == 0)
+    local hidden = #names - shown
+    f.more:SetText(hidden > 0 and string.format("+%d more. Drag the corner to make the window taller.", hidden) or "")
+end
+
+function T:ShowTargets()
+    if call(InCombatLockdown) then A:Notice("Open Nib Targets after combat.", true); return end
+    local names, step = self:TargetNames()
     local f = self.targetWindow
     if not f then
-        f = window("NibTrailTargets", 285, 275, 130, false)
+        f = window("NibTrailTargets", 300, 330, 130, false)
+        self.targetWindow = f
         f:SetFrameStrata("DIALOG")
+        if f.SetBackdropColor then f:SetBackdropColor(0.036, 0.043, 0.079, 0.98); f:SetBackdropBorderColor(0.34, 0.41, 0.61, 1) end
         f.close:SetScript("OnClick", function() if not call(InCombatLockdown) then f:Hide() end end)
         f:SetScript("OnDragStart", function() if not call(InCombatLockdown) then f:StartMoving() end end)
-        self.targetWindow = f
-        label(f,"GameFontNormalLarge",15,-14):SetText("Nib Targets")
-        f.empty = label(f,nil,16,-44,249)
+        local header = trackerPanel(f, 0.079, 0.13, 0.21)
+        header:SetPoint("TOPLEFT", 8, -8); header:SetPoint("TOPRIGHT", -8, -8); header:SetHeight(44)
+        f.close:SetFrameLevel(header:GetFrameLevel() + 2)
+        label(header, "GameFontNormalLarge", 11, -6):SetText("Nib Targets")
+        f.subtitle = label(header, nil, 12, -27)
+        f.subtitle:SetTextColor(0.67, 0.75, 0.87)
+        f.empty = label(f, nil, 14, -TARGET_TOP - 4)
+        f.empty:SetPoint("RIGHT", -14, 0)
         f.empty:SetText("This step has no named targets.")
+        f.empty:SetTextColor(0.62, 0.67, 0.79)
+        f.more = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        f.more:SetPoint("BOTTOMLEFT", 14, 9); f.more:SetPoint("BOTTOMRIGHT", -28, 9); f.more:SetJustifyH("LEFT")
+        f.more:SetTextColor(0.62, 0.67, 0.79)
         f.rows = {}
         for i = 1, 10 do
-            local target = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
-            target:SetSize(252,20); target:SetPoint("TOPLEFT",16,-42-(i-1)*21)
-            target:RegisterForClicks("AnyUp", "AnyDown")
-            target:SetAttribute("type", "macro")
-            target.caption = label(target,nil,5,-3,240)
-            A.UI:Paint(target,"HIGHLIGHT",0.33,0.41,0.58,0.45)
-            f.rows[i] = target
+            local y = -TARGET_TOP - (i - 1) * (TARGET_ROW + TARGET_GAP)
+            local row = CreateFrame("Frame", nil, f)
+            row:SetPoint("TOPLEFT", 10, y); row:SetPoint("TOPRIGHT", -10, y); row:SetHeight(TARGET_ROW)
+            row.bg = A.UI:Paint(row, "BACKGROUND", 0.084, 0.108, 0.16, i % 2 == 1 and 1 or 0.6)
+            -- The name: click to target it.
+            row.target = secureButton(row)
+            row.target:SetPoint("TOPLEFT", 0, 0); row.target:SetPoint("BOTTOMRIGHT", -2 - #markers * 25, 0)
+            row.target.caption = label(row.target, "GameFontHighlight", 9, -6)
+            row.target.caption:SetPoint("RIGHT", -4, 0)
+            if row.target.caption.SetWordWrap then row.target.caption:SetWordWrap(false) end
+            A.UI:Paint(row.target, "HIGHLIGHT", 0.33, 0.41, 0.58, 0.45)
+            row.target:SetScript("OnEnter", function(b)
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:AddLine("Target " .. (row.name or "")); GameTooltip:Show()
+            end)
+            row.target:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            -- One button per raid marker: targets the enemy and puts the marker over its head.
+            row.marks = {}
+            for m, marker in ipairs(markers) do
+                local mark = secureButton(row)
+                mark:SetSize(22, 22)
+                mark:SetPoint("RIGHT", -2 - (#markers - m) * 25, 0)
+                local icon = mark:CreateTexture(nil, "ARTWORK"); icon:SetAllPoints(); icon:SetTexture(marker.icon)
+                mark:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
+                mark:SetScript("OnEnter", function(b)
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine("Mark " .. (row.name or "") .. " with a " .. marker.name)
+                    GameTooltip:AddLine("Targets it and places the marker. Click again to remove it.", 0.85, 0.9, 0.9, true)
+                    GameTooltip:Show()
+                end)
+                mark:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                mark.marker = marker
+                row.marks[m] = mark
+            end
+            f.rows[i] = row
+        end
+        f.lockedInCombat = true
+        A.UI:ResizeGrip(f, "trailTargetsSize", 220, 140, 560, 440)
+        f.afterResize = function() T:LayoutTargets() end
+        f:SetScript("OnSizeChanged", function() T:LayoutTargets() end)
+    end
+    f.names = names
+    f.subtitle:SetText(step and string.format("Step %d  ·  click a name to target it", step) or "Choose a route first")
+    for i, row in ipairs(f.rows) do
+        local name = names[i]
+        row.name = name
+        row.target:SetAttribute("macrotext", name and ("/targetexact " .. name) or nil)
+        row.target.caption:SetText(name or "")
+        for _, mark in ipairs(row.marks) do
+            mark:SetAttribute("macrotext", name and ("/targetexact " .. name .. "\n/tm " .. mark.marker.index) or nil)
         end
     end
-    f.empty:SetShown(#names == 0)
-    for i, target in ipairs(f.rows) do
-        local name = names[i]
-        target:SetAttribute("macrotext", name and ("/targetexact " .. name) or nil)
-        target.caption:SetText(name or "")
-        target:SetShown(name ~= nil)
-    end
     f:Show()
+    self:LayoutTargets()
 end
 function T:Tick(force)
     if not self.state then return end
@@ -1603,26 +1684,131 @@ function T:List()
     end
 end
 
+local STEP_ROWS, STEP_ROW, STEP_GAP = 11, 30, 3
+-- What the step list says about a step, and the colours it uses.
+local stepStates = {
+    current = {badge = "You are here", badgeColor = {0.55, 0.89, 0.76}, text = 1, bg = {0.11, 0.19, 0.24}},
+    done = {badge = "Done", badgeColor = {0.50, 0.62, 0.55}, text = 0.62, bg = {0.07, 0.085, 0.13}},
+    skipped = {badge = "Skipped", badgeColor = {0.91, 0.78, 0.49}, text = 0.62, bg = {0.07, 0.085, 0.13}},
+    inactive = {badge = "Not for you", badgeColor = {0.50, 0.54, 0.64}, text = 0.48, bg = {0.07, 0.085, 0.13}},
+    ahead = {badge = "", badgeColor = {1, 1, 1}, text = 0.92, bg = {0.084, 0.108, 0.16}},
+}
+
 function T:ShowSteps()
     local g,s=self:Current();if not g then return end
-    if not self.stepsFrame then
-        local f=window("NibTrailSteps",500,456,180);self.stepsFrame=f;f.rows={}
-        f.title=label(f,"GameFontNormalLarge",18,-18,450)
-        for i=1,11 do f.rows[i]=button(f,"",18,-49-(i-1)*31,459,function(b)
-            if b.step then T:Browse(b.step);f:Hide() end
-        end) end
-        button(f,"Previous",18,-402,110,function()f.from=math.max(1,f.from-11);T:ListSteps()end)
-        button(f,"Next",367,-402,110,function()local chapter=T:Current();if chapter and f.from+11<=chapter.steps then f.from=f.from+11;T:ListSteps() end end)
-        f.range=label(f,nil,148,-407,205)
+    local f = self.stepsFrame
+    if not f then
+        f = window("NibTrailSteps", 540, 486, 180)
+        self.stepsFrame = f
+        f.rows = {}
+        if f.SetBackdropColor then f:SetBackdropColor(0.036, 0.043, 0.079, 0.98); f:SetBackdropBorderColor(0.34, 0.41, 0.61, 1) end
+        local header = trackerPanel(f, 0.079, 0.13, 0.21)
+        header:SetPoint("TOPLEFT", 10, -10); header:SetPoint("TOPRIGHT", -10, -10); header:SetHeight(50)
+        f.close:SetFrameLevel(header:GetFrameLevel() + 2)
+        f.title = label(header, "GameFontNormalLarge", 12, -8)
+        f.title:SetPoint("RIGHT", -150, 0)
+        if f.title.SetWordWrap then f.title:SetWordWrap(false) end
+        f.summary = label(header, nil, 13, -31)
+        f.summary:SetTextColor(0.67, 0.75, 0.87)
+        local jump = trackerButton(header, "Show my step", 104, function()
+            local _, state = T:Current()
+            if state then f.from = math.max(1, state.step - 3); T:ListSteps() end
+        end, "Scroll back to the step you are on")
+        jump:SetPoint("BOTTOMRIGHT", -34, 6); jump:SetHeight(20)
+        jump.caption:SetTextColor(0.55, 0.89, 0.76)
+        for i = 1, STEP_ROWS do
+            local row = trackerButton(f, "", 1, function(b)
+                local _, state = T:Current()
+                if not b.step or not state then return end
+                if b.step ~= state.step then T:Browse(b.step) end
+                f:Hide()
+            end)
+            local y = -70 - (i - 1) * (STEP_ROW + STEP_GAP)
+            row:SetPoint("TOPLEFT", 12, y); row:SetPoint("TOPRIGHT", -12, y); row:SetHeight(STEP_ROW)
+            row.bg = A.UI:Paint(row, "BACKGROUND", 0.084, 0.108, 0.16)
+            -- A bar on the left marks the step you are on.
+            row.accent = row:CreateTexture(nil, "ARTWORK")
+            row.accent:SetPoint("TOPLEFT"); row.accent:SetPoint("BOTTOMLEFT"); row.accent:SetWidth(3)
+            row.accent:SetColorTexture(0.33, 0.78, 0.62, 1)
+            row.number = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            row.number:SetPoint("LEFT", 8, 0); row.number:SetWidth(34); row.number:SetJustifyH("RIGHT")
+            row.badge = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            row.badge:SetPoint("RIGHT", -10, 0); row.badge:SetJustifyH("RIGHT")
+            row.caption:ClearAllPoints()
+            row.caption:SetPoint("LEFT", row.number, "RIGHT", 12, 0)
+            row.caption:SetPoint("RIGHT", row, "RIGHT", -96, 0)
+            row.caption:SetJustifyH("LEFT")
+            if row.caption.SetMaxLines then row.caption:SetMaxLines(1) end
+            row:SetScript("OnEnter", function(b)
+                if not b.lines then return end
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                GameTooltip:AddLine("Step " .. b.step)
+                for n = 1, math.min(4, #b.lines) do GameTooltip:AddLine(b.lines[n], 0.85, 0.9, 0.9, true) end
+                GameTooltip:Show()
+            end)
+            row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            f.rows[i] = row
+        end
+        local previous = trackerButton(f, "<  Previous", 110, function() f.from = math.max(1, f.from - STEP_ROWS); T:ListSteps() end)
+        local nextPage = trackerButton(f, "Next  >", 110, function()
+            local chapter = T:Current()
+            if chapter and f.from + STEP_ROWS <= chapter.steps then f.from = f.from + STEP_ROWS; T:ListSteps() end
+        end)
+        previous:SetPoint("BOTTOMLEFT", 14, 16); previous:SetHeight(24)
+        nextPage:SetPoint("BOTTOMRIGHT", -14, 16); nextPage:SetHeight(24)
+        f.range = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        f.range:SetPoint("BOTTOM", 0, 22)
+        f.range:SetTextColor(0.67, 0.75, 0.87)
+        -- The mouse wheel moves three steps at a time.
+        f:EnableMouseWheel(true)
+        f:SetScript("OnMouseWheel", function(_, delta)
+            local chapter = T:Current()
+            if not chapter then return end
+            f.from = math.max(1, math.min(math.max(1, chapter.steps - STEP_ROWS + 1), f.from - delta * 3))
+            T:ListSteps()
+        end)
     end
-    self.stepsFrame.from=math.max(1,math.min(s.step,g.steps)-3);self.stepsFrame:Show();self:ListSteps()
+    f.from = math.max(1, math.min(s.step, g.steps) - 3)
+    f:Show()
+    self:ListSteps()
 end
+
 function T:ListSteps()
-    local g,s=self:Current();local f=self.stepsFrame;if not g or not f then return end
-    f.from=math.min(f.from,g.steps);f.title:SetText(text(g.title));f.range:SetText(f.from.."-"..math.min(g.steps,f.from+10).." of "..g.steps)
-    local p,q=self.Profile(),quests();local skip={};for _, i in ipairs(s.skipped or {}) do skip[i]=true end
-    for i,b in ipairs(f.rows) do
-        local n=f.from+i-1;local r=self:Evaluate(g,n,p,q);b.step=n
-        if r then b:SetText(P.TruncateUTF8((n==s.step and "> " or "")..n..". "..(skip[n] and "[Skipped] " or r.skip and "[Inactive] " or n<s.step and "[Past] " or "")..(r.lines[1] or r.skipReason or "Route marker"),77));b:Show()else b:Hide()end
+    local g, s = self:Current()
+    local f = self.stepsFrame
+    if not g or not f then return end
+    f.from = math.max(1, math.min(f.from, g.steps))
+    local skip, skippedCount = {}, 0
+    for _, i in ipairs(s.skipped or {}) do skip[i] = true; skippedCount = skippedCount + 1 end
+    f.title:SetText(text(g.title))
+    local current = math.min(s.step, g.steps)
+    f.summary:SetText(s.step > g.steps and string.format("Chapter complete  ·  %d steps", g.steps)
+        or string.format("Step %d of %d  ·  %d%% through  ·  %d skipped", s.step, g.steps, math.floor((s.step - 1) / g.steps * 100), skippedCount))
+    f.range:SetText(string.format("Steps %d–%d of %d", f.from, math.min(g.steps, f.from + STEP_ROWS - 1), g.steps))
+    local p, q = self.Profile(), quests()
+    p.memo = {}
+    for i, row in ipairs(f.rows) do
+        local n = f.from + i - 1
+        local r = n <= g.steps and self:Evaluate(g, n, p, q)
+        row.step = r and n or nil
+        row:SetShown(r ~= nil and r ~= false)
+        if r then
+            local lines = {}
+            for _, line in ipairs(r.lines) do
+                line = line:gsub("^%[Done%] ", ""):gsub("^%[Marked%] ", ""):gsub("^%[ %] ", ""):gsub("^\n", "")
+                lines[#lines + 1] = line
+            end
+            row.lines = lines
+            local state = n == current and s.step <= g.steps and stepStates.current or skip[n] and stepStates.skipped
+                or r.skip and stepStates.inactive or n < s.step and stepStates.done or stepStates.ahead
+            row.number:SetText(n)
+            row.number:SetTextColor(state.text * 0.8, state.text * 0.85, state.text)
+            row.caption:SetText(lines[1] or r.skipReason or "Route marker")
+            row.caption:SetTextColor(state.text, state.text, math.min(1, state.text + 0.06))
+            row.badge:SetText(state.badge)
+            row.badge:SetTextColor(state.badgeColor[1], state.badgeColor[2], state.badgeColor[3])
+            row.bg:SetColorTexture(state.bg[1], state.bg[2], state.bg[3], 1)
+            row.accent:SetShown(state == stepStates.current)
+        end
     end
 end
