@@ -310,6 +310,43 @@ local function xpReached(expr,p)
 end
 T.XPReached=xpReached
 -- One tracker tick asks about the same step several times. A profile carrying a memo table shares those results.
+-- Quests the route ties to each dungeon, gathered once from every chapter.
+local dungeonQuests
+local function questsByDungeon()
+    if dungeonQuests then return dungeonQuests end
+    dungeonQuests={}
+    for _,chapter in ipairs(D.chapters) do
+        for _,body in ipairs(D.bodies[chapter.id] or {}) do
+            if body:find(".dungeon ",1,true) then
+                local names={}
+                for line in body:gmatch("[^\r\n]+") do
+                    local name=line:match("^%s*%.dungeon%s+([^!%s<][^<]-)%s*$") or line:match("^%s*%.dungeon%s+([^!%s<][^<]-)%s*<<")
+                    if name then names[#names+1]=trim(name) end
+                end
+                if #names>0 then
+                    for kind,id in body:gmatch("%.(%a+)%s+(%d+)") do
+                        if kind=="accept" or kind=="turnin" or kind=="complete" then
+                            for _,name in ipairs(names) do
+                                dungeonQuests[name]=dungeonQuests[name] or {}
+                                dungeonQuests[name][tonumber(id)]=true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return dungeonQuests
+end
+-- true if you have, or have handed in, any quest the route ties to that dungeon; nil when the route names none.
+function T:DoingDungeon(name,q)
+    local ids=questsByDungeon()[name]
+    if not ids or not next(ids) then return nil end
+    for id in pairs(ids) do
+        if q("isonquest",id)==true or q("turnin",id)==true then return true end
+    end
+    return false
+end
 function T:Evaluate(g,index,p,q)
     local memo=p.memo
     local cached=memo and memo[g]
@@ -355,6 +392,13 @@ function T:EvaluateStep(g,index,p,q)
         r.controls[index] = control
         r.linePoints[index] = point
     end
+    -- A step can hand in one quest and then accept the quest that needs it. Those count as met for this step.
+    local turnedHere,acceptedHere={}, {}
+    local function stepQ(kind,id,index)
+        if id and (kind=="turnin" or kind=="isquestturnedin") and turnedHere[math.abs(id)] then return true end
+        if id and (kind=="accept" or kind=="isonquest") and acceptedHere[math.abs(id)] then return true end
+        return q(kind,id,index)
+    end
     local function check(done,description,id,display,entry,kind,merchant,checkboxCondition)
         if id and not seen[id] then seen[id]=true;r.questIds[#r.questIds+1]=id end
         if checkboxCondition ~= nil and self.Matches(checkboxCondition,p) == true then
@@ -362,7 +406,7 @@ function T:EvaluateStep(g,index,p,q)
             return
         end
         -- A collection may deliberately be routed before its quest is picked up.
-        local missing = kind ~= "collect" and not done and id and missingPrerequisite(math.abs(id), q)
+        local missing = kind ~= "collect" and not done and id and missingPrerequisite(math.abs(id), stepQ)
         if missing then
             if not r.blocked[id] then
                 r.blocked[id] = missing
@@ -417,6 +461,11 @@ function T:EvaluateStep(g,index,p,q)
                     end
                 end
                 check(q(k,id,objectiveIndex),instruction,id,styled,entry,k,nil,e.checkboxCondition)
+                if id and k=="turnin" then
+                    turnedHere[math.abs(id)]=true
+                    -- A quest ready to hand in keeps this step on the route even where an area rule would drop it.
+                    if q("turnin",id)~=true and q("complete",id)==true then r.turninReady=true end
+                elseif id and k=="accept" then acceptedHere[math.abs(id)]=true end
                 if k == "complete" and id and objectiveIndex and not r.questParts[id] then
                     -- The route gives each part of a quest its own step. Show where the whole quest stands as well.
                     local objectives = call(C_QuestLog and C_QuestLog.GetQuestObjectives, math.abs(id))
@@ -478,7 +527,7 @@ function T:EvaluateStep(g,index,p,q)
                     if tonumber(area) then area=call(C_Map and C_Map.GetAreaInfo,tonumber(area)) end
                     if p.subzone~="" and type(area)=="string" and area~="" then pass=p.subzone==area end
                 elseif p.mapID then for _, z in ipairs(split(a[1] or "","/+") ) do if self.MapID(z) then pass=(pass==true or self.MapID(z)==p.mapID) end end end
-                if pass~=nil and pass~=((tonumber(a[2]) or 0)%2==1) then r.skip=true end
+                if pass~=nil and pass~=((tonumber(a[2]) or 0)%2==1) then r.areaSkip=true end
             elseif k=="itemcount" then
                 local count,knownCount=0,false
                 for item in (a[1] or ""):gmatch("%d+") do local amount=call(C_Item and C_Item.GetItemCount or GetItemCount,tonumber(item),a[3]~=nil);if amount~=nil then knownCount=true;count=count+amount end end
@@ -486,7 +535,13 @@ function T:EvaluateStep(g,index,p,q)
                 local matches=knownCount and comparison(need,count)
                 if not knownCount or matches==nil then r.review=true elseif not matches then r.skip=true end
             elseif k=="dungeon" and g.mode~="Dungeon quests" then
-                local dungeonMode=g.mode=="Dungeon route"; if (args:sub(1,1)=="!" and dungeonMode) or (args:sub(1,1)~="!" and not dungeonMode) then r.skip=true end
+                local dungeonMode=g.mode=="Dungeon route"
+                local negated=args:sub(1,1)=="!"
+                if negated and dungeonMode then
+                    -- A dungeon route offers each dungeon but does not know whether you are running it. If you have none
+                    -- of its quests, the route's way around it (often a hearth or a trip back to town) still applies.
+                    if self:DoingDungeon(trim(args:sub(2)),q)~=false then r.skip=true;r.skipReason="you are running that dungeon" end
+                elseif not negated and not dungeonMode then r.skip=true end
             elseif k=="note" then
                 if description~="" then addLine(description,e.display) end
             elseif k=="use" and (description=="" or s.collectionQuests[id]) then
@@ -501,6 +556,7 @@ function T:EvaluateStep(g,index,p,q)
             elseif description~="" then addLine(description,e.display) end
         end
     end
+    if r.areaSkip and not r.turninReady then r.skip=true; r.skipReason=r.skipReason or "you are not in that area" end
     r.point=(firstPending and not firstPending.hidden and firstPending) or r.points[1]
     if r.checks == 0 and next(r.blocked) then r.skip=true; r.skipReason="missing quest prerequisite" end
     if r.loop then local dist;for _, point in ipairs(r.points) do local n=self.Distance(point,p);if n and (not dist or n<dist) then dist=n;r.point=point end end end

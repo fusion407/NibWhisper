@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.14
+- Dungeon routes: a step meant for when you are not running a dungeon (often a hearth or a trip back to town) now applies unless you have one of that dungeon's quests.
+- A step that hands in a quest is no longer dropped by an area rule while that quest is ready to hand in.
+- A quest accepted right after its prerequisite is handed in, in the same step, is no longer reported as unavailable.
+
 ## 0.7.13
 - A step you skipped and later finished now shows as Done in the step list, and no longer counts as skipped.
 

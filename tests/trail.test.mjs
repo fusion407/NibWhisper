@@ -448,6 +448,34 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(#T.state.guides[auto.id].skipped==0 and at()==2,'finishing it clears the skipped mark: '..#T.state.guides[auto.id].skipped)
  T:ListSteps();assert(listed.badge:GetText()=='Done' and T.stepsFrame.summary:GetText():find('0 skipped',1,true),listed.badge:GetText())
  T.stepsFrame:Hide();active[7]=false
+ -- The real 21-23 Ashenvale/Stonetalon dungeon route, steps 19 to 21: hearth, return to Astranaar, hand in at Raene.
+ local ashen
+ for _,chapter in ipairs(T.data.chapters) do if chapter.title=='21-23 Ashenvale/Stonetalon' and chapter.mode=='Dungeon route' then ashen=chapter end end
+ assert(ashen,'the chapter exists')
+ local readyQuests={}
+ local realReady=C_QuestLog.ReadyForTurnIn
+ C_QuestLog.ReadyForTurnIn=function(id) return readyQuests[id]==true end
+ active[1023]=true;readyQuests[1023]=true;complete[991]=true
+ local pr=T.Profile()
+ local hearth=T:Evaluate(ashen,19,pr,T.QuestReader())
+ assert(not hearth.skip and table.concat(hearth.lines,'|'):find('Hearth to Astranaar',1,true),'without Wailing Caverns quests the hearth step applies: '..tostring(hearth.skipReason))
+ assert(T:DoingDungeon('WC',T.QuestReader())==false,'no Wailing Caverns quests: not running it')
+ C_Map.GetAreaInfo=function(id) return id==415 and 'Astranaar' or nil end
+ local raene=T:Evaluate(ashen,21,pr,T.QuestReader())
+ assert(not raene.skip,'a quest ready to hand in keeps the step even away from Astranaar: '..tostring(raene.skipReason))
+ local raeneText=table.concat(raene.lines,'|')
+ assert(raeneText:find('Raene',1,true) and not raeneText:find('unavailable',1,true),'the quest handed in by the same step counts as its prerequisite: '..raeneText)
+ readyQuests[1023]=nil
+ assert(T:Evaluate(ashen,21,pr,T.QuestReader()).skip,'with nothing to hand in, the route\\'s area rule still applies away from Astranaar')
+ -- Holding any quest the route ties to Wailing Caverns means you are running it, and the way around it is skipped.
+ local wcIds={};for _,chapter in ipairs(T.data.chapters) do for _,body in ipairs(T.data.bodies[chapter.id]) do
+   if body:find('%.dungeon WC') then for id in body:gmatch('%.accept (%d+)') do wcIds[#wcIds+1]=tonumber(id) end end
+ end end
+ assert(#wcIds>0);active[wcIds[1]]=true
+ local pr2=T.Profile()
+ assert(T:Evaluate(ashen,19,pr2,T.QuestReader()).skip,'with a Wailing Caverns quest the hearth is skipped')
+ active[wcIds[1]]=nil;active[1023]=nil;complete[991]=nil
+ C_QuestLog.ReadyForTurnIn=realReady;C_Map.GetAreaInfo=nil
  -- The step list has a checkbox on each row: skip the current step, skip past the next one, or go back.
  fixture('step\\n>> Walk north','step\\n>> Walk east','step\\n>> Walk south','step\\n>> Walk west','step\\n>> Rest here')
  auto.steps=5;T.state.guides[auto.id].marks=nil;T:Write(auto,2);T.reviewing=false;T:Tick(true)
