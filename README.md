@@ -6,17 +6,19 @@ Nib is a small, goofy murloc cartographer for **World of Warcraft: Forever**. He
 
 ### 1. Download
 
-On the GitHub page choose **Code → Download ZIP** and unzip it anywhere you like. Keep the folder; Nib's helper runs from it.
+For chat, choose **Code → Download ZIP** on GitHub and unzip it. Keep the folder so you can run Nib's helper from it.
+
+For the leveling guide, use a private addon ZIP that includes `NibWhisper_Guide/TrailData.lua`, or build that file from your own installed guides with `node tools/build-trail.mjs`. GitHub's source ZIP does not contain the route data.
 
 ### 2. Drag and drop
 
-Open the `addon` folder inside it and drag these three folders into `World of Warcraft\_forever_\Interface\AddOns`:
+Fully exit WoW. Open the extracted addon ZIP or the `addon` folder in the source ZIP, then merge the relevant folders into `World of Warcraft\_forever_\Interface\AddOns`:
 
 - `NibWhisper`
-- `NibWhisper_Guide`
+- `NibWhisper_Guide` (requires `TrailData.lua`)
 - `NibWhisper_Assistant`
 
-Start the game and tick all three on the AddOns list. The leveling guide and Guide chat work from here with nothing else installed. [TomTom](https://www.curseforge.com/wow/addons/tomtom) is optional and adds the waypoint arrow.
+Start the game and enable Nib Whisper and the modules you installed on the AddOns list. In game, type `/nib version` to check the loaded version and modules. [TomTom](https://www.curseforge.com/wow/addons/tomtom) is optional and adds the waypoint arrow.
 
 ### 3. Set up your Gemini key
 
@@ -26,15 +28,14 @@ This step is only for AI answers.
 2. Double-click **`Start-Nib-Auto.cmd`** in the folder you unzipped. The first time, it finds your AddOns folder and creates Nib's reply files there. Leave its window open while you play.
 3. Fully exit and reopen the game once, so it sees the reply files.
 4. Get a free key from [Google AI Studio](https://aistudio.google.com/apikey) and copy it.
-5. In the game, left-click Nib's minimap button and choose **Gemini setup → Use copied key**. Keep the key on your clipboard until Nib says **Gemini connected**.
+5. In the game, Shift-left-click Nib's minimap button and choose **Gemini setup → Use copied key**. Keep the key on your clipboard until Nib says **Gemini connected**.
 
 That's it. Nib remembers the link, so from now on you only start `Start-Nib-Auto.cmd` before playing. To have it start by itself when you sign in to Windows, run `Install-Nib.ps1 -Background` once.
 
 ### Good to know
 
-- **The route data is not in this repository.** The leveling guide's steps are built from RestedXP guides, which this project does not own, so `NibWhisper_Guide` from a fresh download opens with no routes. Build them from your own installed guides with `node tools/build-trail.mjs`.
 - **If the start script can't find the game**, it asks you to paste the path of your AddOns folder.
-- **Updating:** download again and drag the three folders over the old ones.
+- **Updating:** merge the updated folders into the existing AddOns folder to retain your locally built route data. Use a full client restart to load the update.
 - **Your key stays on your computer**, in `companion/data/gemini-key.local`. It never goes into the game.
 
 

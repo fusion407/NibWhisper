@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.15
+- On a fresh setup, Nib Trail opens at login and offers guide categories. The route picker shows the player's race and class.
+- Left-clicking the minimap opens the guide, and Shift-left-clicking opens chat. Nib starts visible and has a close button.
+- `/nib version` reports the loaded version and whether the guide and assistant are available.
+
 ## 0.7.14
 - Dungeon routes: a step meant for when you are not running a dungeon (often a hearth or a trip back to town) now applies unless you have one of that dungeon's quests.
 - A step that hands in a quest is no longer dropped by an area rule while that quest is ready to hand in.

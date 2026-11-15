@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.14"
+addon.VERSION = "0.7.15"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}
@@ -522,6 +522,12 @@ local function slash(message)
         addon.db.chatMode = enabled and "automatic" or "manual"
         addon:SetOpticalEnabled(enabled)
     elseif command == "options" then UI:ShowOptions()
+    elseif command == "version" then
+        local guide = addon.Trail and "loaded" or "unavailable (check AddOns and TrailData.lua)"
+        local assistant = addon.Assistant and "loaded" or "unavailable (check AddOns)"
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("Nib Whisper %s | Leveling Guide %s | AI Assistant %s", addon.VERSION, guide, assistant))
+        end
     elseif command == "filelog" then
         -- What the reply-file reader tried for the request that is waiting or has just failed. For troubleshooting.
         local report = addon.pending and addon.pending.font and addon.FontSlots and addon.FontSlots:Report(addon.pending)
