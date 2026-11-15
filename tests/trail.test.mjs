@@ -544,6 +544,14 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  T:Tick(true);assert(at()==2,'arriving in the named area finishes the step')
  GetSubZoneText=realSub;C_Map.GetPlayerMapPosition=realPos;C_Map.GetAreaInfo=nil
  assert(T:PathTarget(auto,1,{{mapID=1429,x=1,y=1},{mapID=1429,x=2,y=2}},T.Profile())==nil,'a waypoint per objective is not a path')
+ -- A side step (kept visible while you travel) is listed once, even if saved twice or passed again.
+ fixture('step\\n#completewith next\\n>> Travel to the cave','step\\n>> Talk to Nalpak','step\\n>> Rest here')
+ auto.steps=3;T.state.guides[auto.id].marks=nil;T:Write(auto,2,{},{1,1});T.reviewing=false;T:Tick(true)
+ local sideHeaders=0;for _,row in ipairs(T.rows) do if row:IsShown() and (row.text:GetText() or ''):find('step 1',1,true) then sideHeaders=sideHeaders+1 end end
+ assert(sideHeaders==1,'shown once: '..sideHeaders)
+ assert(#T.state.guides[auto.id].sticky==1,'the saved list is repaired: '..#T.state.guides[auto.id].sticky)
+ T:Write(auto,1,{},{1});T.reviewing=false;T:Tick(true)
+ assert(at()==2 and #T.state.guides[auto.id].sticky==1,'passing the step again does not add it twice')
  -- A step that tracks one part of a quest also shows where the whole quest stands.
  fixture('step\\n.complete 2098,3 >> Loot the Bottom of the Key','step\\n>> Rest here')
  auto.steps=2;active[2098]=true;T.state.guides[auto.id].marks=nil;T:Write(auto,1)

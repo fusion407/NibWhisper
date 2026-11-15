@@ -798,10 +798,12 @@ function T:Advance(p,q)
     end
     if pruned then s.skipped=stillSkipped end
     for _,idx in ipairs(s.skipped or {}) do skippedSet[idx]=true end
+    local kept={}
     local function keep(idx,r)
-        if not r or r.skip or r.complete or skippedSet[idx] then return end
+        -- Each side step is kept once, however many times the guide passes it.
+        if not r or r.skip or r.complete or skippedSet[idx] or kept[idx] then return end
         local untilIndex=r.sticky=="next" and idx+1 or chapter.labels[r.sticky or ""]
-        if not untilIndex or untilIndex>=i then sticky[#sticky+1]=idx end
+        if not untilIndex or untilIndex>=i then sticky[#sticky+1]=idx;kept[idx]=true end
     end
     for _,idx in ipairs(s.sticky or {}) do keep(idx,self:Evaluate(g,idx,p,q)) end
     for _=1,40 do
@@ -1265,8 +1267,11 @@ function T:Refresh(p, q)
         local nextGuide = self:NextChapter(g)
         lines[1] = nextGuide and ("Chapter complete. Next: " .. text(nextGuide.title)) or "Chapter complete. Choose another chapter from Routes."
     end
+    local shownSide = {}
     for _, i in ipairs(s.sticky or {}) do
-        if i < s.step then
+        -- Progress saved by an earlier version can list a side step twice; show it once.
+        if i < s.step and not shownSide[i] then
+            shownSide[i] = true
             local side = self:Evaluate(g, i, p, q)
             if side and not side.complete and not side.skip then
                 lines[#lines + 1] = "\nWhile you travel · step " .. i

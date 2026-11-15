@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.16
+- A step kept visible while you travel is shown once. It could appear twice after browsing back and moving on again.
+
 ## 0.7.15
 - The arrow now follows a step's whole path of waypoints in order, such as the route round the Barrens guards to Ratchet, instead of pointing straight at the destination. The guide shows Path 2/6 and moves on as you reach each point.
 - A step that says to travel to an area finishes when you arrive there.
