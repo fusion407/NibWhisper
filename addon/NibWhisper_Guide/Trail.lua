@@ -347,6 +347,28 @@ function T:DoingDungeon(name,q)
     end
     return false
 end
+-- Many steps lay out a path: waypoints with an arrival radius, then the destination. The route means them to be
+-- walked in order (round the guards, along a road). This returns the first one not yet reached, or nil once only the
+-- destination is left. Reaching any later waypoint counts for the ones before it.
+function T:PathTarget(g, step, path, p)
+    -- Only a real path: every waypoint but the last is an in-between point with an arrival radius and no map pin.
+    -- Steps that simply list a waypoint per objective keep pointing at the next objective instead.
+    for i = 1, #path - 1 do if not (path[i].hidden and path[i].radius) then return nil end end
+    self.pathProgress = self.pathProgress or {}
+    local key = g.id .. ":" .. step
+    local reached = self.pathProgress[key] or 0
+    for i = #path, reached + 1, -1 do
+        local point = path[i]
+        if point.radius then
+            local distance = self.Distance(point, p)
+            if distance and distance <= point.radius then reached = i; break end
+        end
+    end
+    self.pathProgress[key] = reached
+    -- The last waypoint is where the step's own pin already points.
+    if reached + 1 >= #path then return nil end
+    return path[reached + 1]
+end
 function T:Evaluate(g,index,p,q)
     local memo=p.memo
     local cached=memo and memo[g]
@@ -357,7 +379,7 @@ function T:Evaluate(g,index,p,q)
 end
 function T:EvaluateStep(g,index,p,q)
     local s=self:Chapter(g).steps[index]; if not s then return nil end
-    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={}}
+    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={},path={}}
     local m=self.Matches(s.condition,p);if m==false then r.skip=true;r.skipReason="does not apply to your character";return r elseif m==nil then r.review=true end
     for _, f in ipairs(s.flags) do
         local active=self.Matches(f.condition,p)
@@ -429,7 +451,12 @@ function T:EvaluateStep(g,index,p,q)
             local k,args=e.kind,e.args or ""; local a=split(args,",");local id=tonumber(a[1]);local description=e.desc
             if k=="goto" or k=="waypoint" then
                 local point=self.Point(args)
-                if point then point.title=description~="" and description or g.title;lastPoint=point;if not point.hidden then r.points[#r.points+1]=point end end
+                if point then
+                    point.title=description~="" and description or g.title;lastPoint=point
+                    if not point.hidden then r.points[#r.points+1]=point end
+                    -- Every waypoint in order, including the in-between ones with no map pin. The arrow walks them.
+                    r.path[#r.path+1]=point
+                end
                 if description~="" then
                     if k=="goto" and point and point.radius then
                         -- "Travel to X" written on the waypoint itself is an objective: it is done once the player is inside the radius.
@@ -546,6 +573,11 @@ function T:EvaluateStep(g,index,p,q)
                 if description~="" then addLine(description,e.display) end
             elseif k=="use" and (description=="" or s.collectionQuests[id]) then
                 if description~="" then addLine(description,e.display) end
+            elseif k=="subzone" and description~="" then
+                local area=a[1]
+                if tonumber(area) then area=call(C_Map and C_Map.GetAreaInfo,tonumber(area)) end
+                local arrived=type(area)=="string" and area~="" and (p.subzone==area or p.zone==area)
+                check(arrived==true,description,nil,e.display,entry,"subzone",nil,e.checkboxCondition)
             elseif not quiet[k] and (description~="" or manualNames[k]) then
                 -- Some of these can be read straight from the game. The rest are ticked by events (see T:GameEvent).
                 local done=false
@@ -1266,6 +1298,11 @@ function T:Refresh(p, q)
     end
     self:RenderRows(lines, controls, points, links)
     self.routePoints = r and r.points or {}
+    local pathAt, pathTotal
+    if r and not r.skip and #r.path > 1 and not self.pinIndex and not self.clickedPoint then
+        local next = self:PathTarget(g, s.step, r.path, p)
+        if next then point, pathAt, pathTotal = next, self.pathProgress[g.id .. ":" .. s.step] + 1, #r.path end
+    end
     if self.pinIndex and self.routePoints[self.pinIndex] then point = self.routePoints[self.pinIndex] end
     if self.clickedPoint then point = self.clickedPoint end
     self.currentPoint = point
@@ -1279,7 +1316,8 @@ function T:Refresh(p, q)
             direction = direction .. (math.abs(degrees) < 12 and " · ahead" or string.format(" · %d° %s", math.floor(math.abs(degrees)), degrees > 0 and "left" or "right"))
         end
         local waypoint = string.format("%.2f, %.2f", point.x, point.y)
-        if #self.routePoints > 1 then waypoint = waypoint .. string.format("  ·  Pin %d/%d", self.pinIndex or 1, #self.routePoints) end
+        if pathAt then waypoint = waypoint .. string.format("  ·  Path %d/%d", pathAt, pathTotal)
+        elseif #self.routePoints > 1 then waypoint = waypoint .. string.format("  ·  Pin %d/%d", self.pinIndex or 1, #self.routePoints) end
         self.nav:SetText(waypoint .. (direction ~= "" and ("  ·  " .. direction) or "  ·  " .. text(info and info.name or ("Map " .. point.mapID))))
         if self.clickedPoint or (A.db.trailPins ~= false and not self.suppressPin and not (r and r.review)) then self:Pin(point)
         elseif r and r.review then self:Pin(nil) end

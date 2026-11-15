@@ -1,4 +1,4 @@
-# Nib Trail 0.7.14 in-game QA
+# Nib Trail 0.7.15 in-game QA
 
 ## Desktop: first five minutes
 
@@ -44,6 +44,8 @@
 24. New in 0.7.13. Skip a quest step, then go back and finish it. Open **Steps**: that step should say Done, and the skipped count in the header should go down by one.
 
 25. New in 0.7.14. In 21-23 Ashenvale/Stonetalon (dungeon route) without Wailing Caverns quests, finish step 18. The guide should show Hearth to Astranaar, then Raene Wolfrunner with both quests listed and no "unavailable" line.
+
+26. New in 0.7.15. In 21-23 Ashenvale/Stonetalon (dungeon route) step 26, check the arrow points to the first waypoint and the guide shows Path 1/6, and that it moves on as you reach each point until Ratchet. Arriving in Ratchet should finish the step.
 
 ## Desktop → laptop → desktop
 

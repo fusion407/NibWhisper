@@ -528,6 +528,22 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  C_Map.GetAreaInfo=function() return 'Somewhere Else' end
  T:Write(auto,1);T:Tick(true);assert(at()==1,'a different area does not skip it')
  C_Map.GetAreaInfo=nil;C_Map.GetPlayerMapPosition=realPosition
+ -- A path of waypoints (like "follow the arrow to avoid the guards") is walked in order, then the area is reached.
+ fixture('step\\n.goto 1429,10,10,5,0\\n.goto 1429,20,20,5,0\\n.goto 1429,30,30,5,0\\n.goto 1429,40,40\\n.subzone 392 >> Travel to Ratchet. Follow the arrow to avoid the guards','step\\n>> Rest here')
+ auto.steps=2;T.state.guides[auto.id].marks=nil;T:Write(auto,1);T.reviewing=false;T.pathProgress=nil
+ local px,py=.50,.50
+ local realPos=C_Map.GetPlayerMapPosition
+ C_Map.GetPlayerMapPosition=function() return {GetXY=function() return px,py end} end
+ C_Map.GetAreaInfo=function(id) return id==392 and 'Ratchet' or nil end
+ T:Tick(true)
+ assert(at()==1 and T.currentPoint.x==10 and T.nav:GetText():find('Path 1/4',1,true),'the arrow starts at the first waypoint: '..T.nav:GetText())
+ px,py=.10,.10;T:Tick(true);assert(T.currentPoint.x==20 and T.nav:GetText():find('Path 2/4',1,true),'reaching it moves the arrow on')
+ px,py=.30,.30;T:Tick(true);assert(T.currentPoint.x==40 and not T.nav:GetText():find('Path',1,true),'reaching a later waypoint counts for the ones before it')
+ px,py=.10,.10;T:Tick(true);assert(T.currentPoint.x==40,'the arrow never goes back along the path')
+ local realSub=GetSubZoneText;function GetSubZoneText() return 'Ratchet' end
+ T:Tick(true);assert(at()==2,'arriving in the named area finishes the step')
+ GetSubZoneText=realSub;C_Map.GetPlayerMapPosition=realPos;C_Map.GetAreaInfo=nil
+ assert(T:PathTarget(auto,1,{{mapID=1429,x=1,y=1},{mapID=1429,x=2,y=2}},T.Profile())==nil,'a waypoint per objective is not a path')
  -- A step that tracks one part of a quest also shows where the whole quest stands.
  fixture('step\\n.complete 2098,3 >> Loot the Bottom of the Key','step\\n>> Rest here')
  auto.steps=2;active[2098]=true;T.state.guides[auto.id].marks=nil;T:Write(auto,1)

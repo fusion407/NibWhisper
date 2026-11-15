@@ -481,7 +481,7 @@ function addon:Initialize()
     if type(NibWhisperCharDB) ~= "table" then NibWhisperCharDB = {} end
     self.db, self.charDB = NibWhisperDB, NibWhisperCharDB
     self.db.opticalEnabled = self.db.opticalEnabled == true
-    -- 0.6.1 to 0.7.14 could switch a linked player to copy and paste at login. Put automatic mode back once.
+    -- 0.6.1 to 0.7.15 could switch a linked player to copy and paste at login. Put automatic mode back once.
     if self.db.geminiLinked == nil and self.Optical then
         if self.db.chatMode == "manual" or self.db.chatMode == "automatic" or self.db.opticalEnabled then
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true

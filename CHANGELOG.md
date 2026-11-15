@@ -1,6 +1,10 @@
 # Changelog
 
 ## 0.7.15
+- The arrow now follows a step's whole path of waypoints in order, such as the route round the Barrens guards to Ratchet, instead of pointing straight at the destination. The guide shows Path 2/6 and moves on as you reach each point.
+- A step that says to travel to an area finishes when you arrive there.
+
+## 0.7.15
 - On a fresh setup, Nib Trail opens at login and offers guide categories. The route picker shows the player's race and class.
 - Left-clicking the minimap opens the guide, and Shift-left-clicking opens chat. Nib starts visible and has a close button.
 - `/nib version` reports the loaded version and whether the guide and assistant are available.
