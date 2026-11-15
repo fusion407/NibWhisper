@@ -35,6 +35,8 @@ test('the leveling guide works with the AI assistant switched off',()=>{
  assert(A.initialized and T and not A.Assistant and not A.Optical and not A.CharacterData)
  assert(not A.UI.chat and not A.UI.mascot and A.UI.minimap,'chat and the mascot belong to the assistant')
  assert(T.frame and T.frame:IsShown(),'the guide is open at login by default')
+ assert(T.library:IsShown() and T.library.menu:IsShown() and not T:Current(),'first login offers route categories without selecting a chapter')
+ T.library:Hide()
  -- The guide remembers where it was dragged or resized to.
  assert(A.db.trailPosition==nil and not A.UI:RestorePosition(T.frame,'trailPosition'),'a fresh install uses the default spot')
  local placed
@@ -46,7 +48,7 @@ test('the leveling guide works with the AI assistant switched off',()=>{
  assert(A.UI:RestorePosition(T.frame,'trailPosition') and placed[1]=='CENTER' and placed[2]==200 and placed[3]==0)
  A.db.trailPosition={x='bad'};assert(not A.UI:RestorePosition(T.frame,'trailPosition'),'a damaged saved position is ignored')
  A.db.trailPosition=nil;T.frame.GetCenter=nil;T.frame.SetPoint=nil
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton');assert(not T.frame:IsShown(),'left-click closes the open guide when there is no chat')
+ T.frame.close.scripts.OnClick();assert(not T.frame:IsShown())
  A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton');assert(T.frame:IsShown(),'left-click opens the guide when there is no chat')
  assert(#T.footerButtons==4,'Ask Nib is only offered with the assistant')
  assert(T:Select(T:Suggested(T.Profile(),'Solo route')));T:Tick(true)
@@ -171,20 +173,44 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  TomTom.RemoveWaypoint=function(_,uid) removed=uid end
  TomTom.AddWaypoint=function(_,map,x,y,options) waypoint={map,x,y,options};return {from=options.from} end
  A:Initialize(); T:Open()
- assert(not A.UI.mascot:IsShown())
+ assert(A.UI.mascot:IsShown(),'Nib is visible by default')
+ A.UI.mascot.close.scripts.OnClick()
+ assert(not A.UI.mascot:IsShown() and A.db.mascotPreference and A.db.mascotVisible==false,'closing Nib saves the visibility preference')
  A.UI:ShowChat(); assert(A.UI.chat.strata=='HIGH' and T.frame.strata=='MEDIUM')
  A.UI.guideButton.scripts.OnClick(); assert(A.UI.chat:IsShown() and T.frame.strata=='HIGH' and A.UI.chat.strata=='MEDIUM')
  T.frame:Hide()
  function IsShiftKeyDown() return true end
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(T.frame:IsShown() and A.UI.chat:IsShown())
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(not T.frame:IsShown() and not A.UI.options,'Shift with the right button toggles the guide, not Options')
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(T.frame:IsShown())
+ A.UI.chat:Hide()
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(not T.frame:IsShown() and A.UI.chat:IsShown())
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(T.frame:IsShown() and not A.UI.options)
  function IsShiftKeyDown() return false end
+ T.frame:Hide()
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(T.frame:IsShown() and A.UI.frontWindow==T.frame)
  A.eventFrame.scripts.OnEvent(nil,'PLAYER_DEAD'); T.frame:Hide(); T:Tick(true); assert(T.frame:IsShown())
  T.frame.close.scripts.OnClick(); T:Tick(true); assert(not T.frame:IsShown(),'closing the guide manually must survive the death transition')
  T:Open()
  assert(not T:Current(),'opening Trail should not select a chapter before sync')
  local suggested=T:Suggested(T.Profile(),'Solo route'); assert(suggested and T:Select(suggested)); T:Tick(true)
+ local originalRace,originalClass=UnitRace,UnitClass
+ assert(not T:Suggested(T.Profile(),'Mage AoE'),'Paladins cannot get a Mage route recommendation')
+ function UnitClass() return 'Mage','MAGE' end
+ local humanMage=T:Suggested(T.Profile(),'Mage AoE')
+ assert(humanMage and humanMage.title:find('Elwynn',1,true))
+ function UnitRace() return 'Gnome','Gnome' end
+ local gnomeMage=T:Suggested(T.Profile(),'Mage AoE')
+ assert(gnomeMage and gnomeMage.title:find('Dun Morogh',1,true))
+ assert(T:Suggested(T.Profile(),'Solo route').title:find('Coldridge',1,true))
+ local profileStep={id='race-class-fixture'}
+ T.parsed[profileStep.id]={steps={T.Parse([[step
++Gnome Mage instruction << Gnome Mage
++Human Mage instruction << Human Mage
++Non-Mage instruction << !Mage]])}}
+ local function instructions() return table.concat(T:Evaluate(profileStep,1,T.Profile(),T.QuestReader()).lines,' ') end
+ assert(instructions()=='Gnome Mage instruction')
+ UnitRace=originalRace
+ assert(instructions()=='Human Mage instruction')
+ UnitClass=originalClass
+ assert(instructions()=='Non-Mage instruction')
  local g,s=T:Current(); assert(g.name=='1-6 Northshire',g.name)
  assert(s.step==5,'expected Northshire quest opener, got '..s.step)
  assert(waypoint and waypoint[1]==1429 and math.abs(waypoint[2]-(1136.48/3000))<.001)

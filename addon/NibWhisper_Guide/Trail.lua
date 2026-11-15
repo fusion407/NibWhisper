@@ -709,7 +709,11 @@ function T:Suggested(p,mode)
     local best,score
     for _,g in ipairs(D.chapters) do if g.mode==mode and g.min>0 and self:Eligible(g,p)==true then
         local rank=(p.level and (g.min<=p.level and p.level<=g.max) and 100 or 0) - math.abs((p.level or 1)-g.min)*3
-        if g.race~="" and g.race~="None" then if self.Matches(g.race,p)==true then rank=rank+35 else rank=rank-70 end end
+        -- Mage AoE chapters can prefix their recommendation tags with a "none" placeholder.
+        local preference = trim((g.race or ""):lower():gsub("%f[%a]none%f[%A]", ""))
+        if preference ~= "" then
+            if self.Matches(preference,p)==true then rank=rank+35 else rank=rank-70 end
+        end
         if not score or rank>score then best,score=g,rank end
     end end
     return best
@@ -1288,6 +1292,17 @@ function T:Open()
     self:Build(); self.keepVisible = true; self.frame:Show(); A.UI:RaiseMain(self.frame)
     self:Tick(true)
 end
+
+function T:OpenAtLogin()
+    self:Open()
+    if not A.db.trailWelcomeShown then
+        A.db.trailWelcomeShown = true
+        if not self:Current() then
+            self:ShowLibrary()
+            self.library.menu:Show()
+        end
+    end
+end
 function T:Toggle()
     if self.frame and self.frame:IsShown() and A.UI.frontWindow == self.frame then self.keepVisible = false; self.frame:Hide()
     else self:Open() end
@@ -1621,8 +1636,8 @@ function T:Tick(force)
     self:Refresh(p,q)
 end
 local libraryModes = {
-    {name="Solo route", subtitle="Questing by zone"},
-    {name="Dungeon route", subtitle="Leveling with dungeon runs"},
+    {name="Solo route", subtitle="Speed run: level by questing"},
+    {name="Dungeon route", subtitle="Adventure with dungeon runs"},
     {name="Mage AoE", subtitle="Mage area damage routes"},
     {name="Dungeon quests", subtitle="Quests for a specific dungeon"},
 }
@@ -1638,9 +1653,8 @@ function T:ShowLibrary()
         header:SetPoint("TOPLEFT", 10, -10); header:SetPoint("TOPRIGHT", -10, -10); header:SetHeight(55)
         f.close:SetFrameLevel(header:GetFrameLevel() + 2)
         label(header, "GameFontNormalLarge", 13, -9):SetText("Nib Trail Route Library")
-        local detail = label(header, "GameFontHighlightSmall", 14, -32)
-        detail:SetText("Choose a chapter for your character")
-        detail:SetTextColor(0.67, 0.75, 0.87)
+        f.detail = label(header, "GameFontHighlightSmall", 14, -32)
+        f.detail:SetTextColor(0.67, 0.75, 0.87)
 
         f.filter = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
         f.filter:SetSize(307, 28); f.filter:SetPoint("TOPLEFT", 23, -79)
@@ -1708,12 +1722,16 @@ function T:ShowLibrary()
         f.pages:SetPoint("BOTTOM", 0, 25)
         f:SetScript("OnHide", function() f.filter:ClearFocus(); menu:Hide() end)
     end
+    self.library.menu:Hide()
     self.library:Show()
     self:List()
 end
 
 function T:List()
     local f, p = self.library, self.Profile()
+    local className = call(UnitClass, "player") or p.class
+    local raceName = call(UnitRace, "player") or p.race
+    f.detail:SetText("Choose your guide  ·  " .. text(raceName) .. " " .. text(className))
     local mode = libraryModes[f.mode].name
     f.modeButton.caption:SetText(mode)
     local query, found = trim(f.filter:GetText()):lower(), {}

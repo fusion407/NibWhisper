@@ -112,8 +112,10 @@ Nib is instructed to stay in Azeroth, permit casual Warcraft roleplay, and redir
 
 | Control | Effect |
 |---|---|
-| Minimap left-click / click Nib / `/nib` | Open chat |
-| Minimap Shift-click (either button) | Open or close the leveling guide |
+| Minimap left-click | Open the leveling guide, or chat if only the assistant is enabled |
+| Minimap Shift-left-click / click Nib / `/nib` | Open Nib chat when the assistant is enabled |
+| Minimap Shift-right-click | Open the leveling guide when enabled |
+| **×** on Nib | Hide the mascot until you show him again in Nib Options |
 | Click a blue `>` guide line | Copy its video or web link |
 | Click a coloured name in a guide step | Open an info card with Ask Nib and a Wowhead link |
 | Right-click a quest objective in the guide | Show quest status, objectives, and prerequisites |

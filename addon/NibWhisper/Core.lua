@@ -487,7 +487,7 @@ function addon:Initialize()
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true
         else self.db.geminiLinked = false end
     end
-    if not self.db.mascotPreference then self.db.mascotVisible = false end
+    if not self.db.mascotPreference then self.db.mascotVisible = true end
     local history = P.Array()
     if type(self.charDB.history) == "table" then
         for i = math.max(1, #self.charDB.history - 79), #self.charDB.history do
@@ -505,7 +505,7 @@ function addon:Initialize()
     if self.Trail then
         self.Trail:Init()
         -- The guide is on screen at login unless the player switched that off in Options.
-        if self.db.trailOpenOnLogin ~= false then self.Trail:Open() end
+        if self.db.trailOpenOnLogin ~= false then self.Trail:OpenAtLogin() end
     end
     if self.Assistant and #history == 0 then self:Remember("assistant", "Mrrgl! Pick a prompt to read your guide, quest log, or profession ranks. Click Gemini setup for open-ended Warcraft questions.") end
     self:Notice(self:GetChatMode() == "automatic" and "Start the local companion to ask AI questions." or "Pick a prompt or type a question.")
@@ -538,7 +538,7 @@ local function slash(message)
         addon.db.position, addon.db.mascotWidth = nil, nil
         if UI.mascot then UI.mascot:ClearAllPoints(); UI.mascot:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -260, 180); UI:SetMascotWidth(nil) end
         addon:Notice("Nib is back beside your adventure supplies, at his usual size.")
-    elseif command == "help" then UI:ShowCopy("/nib - chat\n/nib trail - leveling guide\n/nib options - settings\n/nib show or hide - mascot\n/nib auto [on/off] - optional screen-reader bridge\n/nib copy or paste - manual transfer\n/nib cancel - cancel pending question\n/nib clear - clear character chat history\n/nib reset - reset mascot position\n\nMinimap left-click opens chat, Shift-click opens the leveling guide, and right-click opens Nib Options. Drag Nib or the minimap button to move them. Replies only place pins, open quests, or select installed guides when you click an action button. Automatic transport needs a separately running local companion and reply-slot addons installed before restarting the game.", "Nib's pocket instructions")
+    elseif command == "help" then UI:ShowCopy("/nib - chat\n/nib trail - leveling guide\n/nib options - settings\n/nib show or hide - mascot\n/nib auto [on/off] - optional screen-reader bridge\n/nib copy or paste - manual transfer\n/nib cancel - cancel pending question\n/nib clear - clear character chat history\n/nib reset - reset mascot position\n\nMinimap left-click opens the leveling guide (or chat if the guide is disabled), Shift-left-click opens Nib chat, and right-click opens Nib Options. Drag Nib or the minimap button to move them. Replies only place pins, open quests, or select installed guides when you click an action button. Automatic transport needs a separately running local companion and reply-slot addons installed before restarting the game.", "Nib's pocket instructions")
     elseif message == "" then
         if addon.Assistant then UI:ToggleChat() elseif addon.Trail then addon.Trail:Toggle() end
     else addon:Ask(message) end

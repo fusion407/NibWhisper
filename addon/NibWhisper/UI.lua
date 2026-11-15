@@ -698,6 +698,10 @@ function UI:CreateMascot()
     else mascot:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -260, 180) end
     mascot.art = mascot:CreateTexture(nil, "ARTWORK"); mascot.art:SetAllPoints(); mascot.art:SetTexture(textureRoot .. "Nib.tga"); mascot.art:SetTexCoord(0.125, 0.875, 0, 1)
     local name = label(mascot, "Nib", "BOTTOM", 0, 0, "GameFontNormal"); name:SetTextColor(0.66, 1, 0.82)
+    local close = CreateFrame("Button", nil, mascot, "UIPanelCloseButton")
+    close:SetSize(24, 24); close:SetPoint("TOPRIGHT", -2, -2)
+    close:SetScript("OnClick", function() UI:ToggleMascot(); UI:RefreshOptions() end)
+    mascot.close = close
     mascot:SetScript("OnClick", function(self, which)
         if self.suppressClickUntil and GetTime() < self.suppressClickUntil then return end
         if which == "RightButton" then addon:LocalChatter() else UI:ToggleChat() end
@@ -742,11 +746,10 @@ function UI:CreateMinimap()
     end
     b:SetScript("OnClick", function(self, which)
         if self.suppressClickUntil and GetTime() < self.suppressClickUntil then return end
-        -- Shift with either mouse button is the guide shortcut, and a second click closes it again.
-        -- With the assistant switched off, a plain left-click opens the guide instead of chat.
         local shift = IsShiftKeyDown and IsShiftKeyDown()
         if which == "RightButton" and not (shift and addon.Trail) then UI:ShowOptions()
-        elseif addon.Trail and (shift or not addon.Assistant) then addon.Trail:Toggle()
+        elseif which == "LeftButton" and shift and addon.Assistant then UI:ShowChat()
+        elseif addon.Trail then addon.Trail:Open()
         elseif addon.Assistant then UI:ToggleChat() end
     end)
     b:SetScript("OnDragStart", function(self)
@@ -768,8 +771,9 @@ function UI:CreateMinimap()
     b:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Nib Whisper")
         local lines = {}
-        if addon.Assistant then lines[#lines + 1] = "Left-click: chat" end
-        if addon.Trail then lines[#lines + 1] = addon.Assistant and "Shift-click (either button): leveling guide" or "Left-click: leveling guide" end
+        if addon.Trail then lines[#lines + 1] = "Left-click: leveling guide" end
+        if addon.Assistant then lines[#lines + 1] = addon.Trail and "Shift-left-click: Nib chat" or "Left-click: Nib chat" end
+        if addon.Trail then lines[#lines + 1] = "Shift-right-click: leveling guide" end
         lines[#lines + 1] = "Right-click: Nib Options\nDrag: move around minimap"
         GameTooltip:AddLine(table.concat(lines, "\n"), 0.85, 0.9, 0.9, true); GameTooltip:Show()
     end)
