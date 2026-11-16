@@ -601,9 +601,74 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  active[98282]=true
  T:Tick(true)
  assert(wetStep()==57 and #T.state.guides[wetlands.id].sticky==0,'arrival advances to the cave objective with no unfinished entrance reminder')
- active[98282]=nil;C_Map.GetPlayerMapPosition=oldWetPosition
+ -- The optional return to Menethil is a checkpoint, even while the hearth reminder is a side step.
+ local oldWetSubzone,oldWetArea=GetSubZoneText,C_Map.GetAreaInfo
+ local wetSubzone='Thelgen Rock'
+ function GetSubZoneText() return wetSubzone end
+ C_Map.GetAreaInfo=function(id) return ({[2104]='Deepwater Tavern',[150]='Menethil Harbor'})[id] end
+ T:Write(wetlands,72,{}, {70}, {});T:Tick(true)
+ assert(wetStep()==72,'the guide waits for the return to Menethil')
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',8690);T:Tick(true)
+ assert(wetStep()==72,'casting Hearthstone does not complete the return before arrival')
+ wetSubzone='Deepwater Tavern';T:Tick(true)
+ assert(wetStep()==73,'arriving at the inn completes the return')
+ T:Write(wetlands,72,{}, {}, {});wetSubzone='Menethil Harbor';T:Tick(true)
+ assert(wetStep()==73 and not T.skipNotice,'the harbor also counts as arrival, without a skip')
+ wetSubzone='Thelgen Rock';T:Write(wetlands,72,{}, {}, {});T:Tick(true)
+ T.nextButton.scripts.OnClick()
+ assert(wetStep()==73,'Done advances manually while away from Menethil')
+ -- The mage teleport is a zone objective. A spellcast alone is not arrival.
+ function UnitClass() return 'Mage','MAGE' end
+ T:Write(wetlands,80,{}, {}, {});T:Tick(true)
+ local teleport=T:Evaluate(wetlands,80,T.Profile(),T.QuestReader())
+ assert(wetStep()==80 and not teleport.complete and teleport.controls[1].kind=='zone','Teleport to Ironforge has an unchecked objective outside the city')
+ fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',3562);T:Tick(true)
+ assert(wetStep()==80,'the cast does not complete the teleport before arrival')
+ map=1455
+ assert(T:Evaluate(wetlands,80,T.Profile(),T.QuestReader()).complete,'the objective checks itself in Ironforge')
+ T:Tick(true);assert(wetStep()==81,'arrival advances to Dink')
+ active[98282]=nil
+ GetSubZoneText,C_Map.GetAreaInfo,C_Map.GetPlayerMapPosition=oldWetSubzone,oldWetArea,oldWetPosition
  C_Map.GetBestMapForUnit,C_Map.GetWorldPosFromMapPos,T.maps.Ironforge,GetItemCount=oldMap,oldWorld,oldIronforge,oldGetItem
  UnitClass=oldClass
+ -- The real Duskwood dungeon route combines the four AH variants and preserves its numbered travel legs.
+ local duskwood=T.byID['7f942d9ae2b1b679']
+ local originalLevel,originalMap,originalSubzone,originalItem,originalArea=UnitLevel,C_Map.GetBestMapForUnit,GetSubZoneText,GetItemCount,C_Map.GetAreaInfo
+ local duskMap,duskSubzone=1453,'Trade District'
+ function UnitLevel() return 24 end
+ function GetSubZoneText() return duskSubzone end
+ C_Map.GetBestMapForUnit=function() return duskMap end
+ C_Map.GetAreaInfo=function(id) return id==42 and 'Darkshire' or nil end
+ local shopping={[4371]=1,[1015]=10,[2251]=5}
+ function GetItemCount(id) return shopping[id] or 0 end
+ T:Write(duskwood,13,{14},{16,17,18},{});T.state.selected={id=duskwood.id}
+ T:NormalizeDuskwoodProgress()
+ local function duskStep() return T.state.guides[duskwood.id].step end
+ T:Tick(true)
+ assert(duskStep()==11 and #T.state.guides[duskwood.id].sticky==0,'old shopping progress resumes at the merged step without stale flight reminders')
+ assert(T:Evaluate(duskwood,11,T.Profile(),T.QuestReader()).checks==3,'one shopping checklist has all three items')
+ assert(T.preview[3].index==16,'the next preview skips the redundant shopping steps and label')
+ T:ShowSteps()
+ for _, row in ipairs(T.stepsFrame.rows) do
+   assert(not row.step or row.step<12 or row.step>15,'the merged steps do not appear in Steps')
+ end
+ T.stepsFrame:Hide()
+ shopping[2251]=6;T:Tick(true)
+ assert(duskStep()==16 and T:FlightDestination()=='Redridge','shopping advances to the Redridge flight')
+ flying=true;T:Tick(true);duskMap=1433;T:Tick(true)
+ assert(duskStep()==16,'the Redridge flight must land before the next travel step')
+ flying=false;T:Tick(true)
+ assert(duskStep()==17,'landing in Redridge exposes Travel to Darkshire')
+ duskMap=1431;T:Tick(true)
+ assert(duskStep()==17,'entering Duskwood alone does not finish the Darkshire step')
+ duskSubzone='Darkshire';T:Tick(true)
+ assert(duskStep()==18 and T:FlightDestination()=='Westfall','Darkshire arrival exposes the Westfall flight')
+ flying=true;T:Tick(true);duskMap=1436;T:Tick(true)
+ assert(duskStep()==18,'the Westfall flight must land before the next quest')
+ flying=false;T:Tick(true)
+ assert(duskStep()==19,'arrival in Westfall leads to Lars')
+ UnitLevel,C_Map.GetBestMapForUnit,GetSubZoneText,GetItemCount,C_Map.GetAreaInfo=originalLevel,originalMap,originalSubzone,originalItem,originalArea
+ clock=clock+1.1
  T.state.selected={id=auto.id}
  -- Step 75 of the same chapter: collect 5 bracers for quest 1016. Accepting the quest does not finish it.
  local bags={}

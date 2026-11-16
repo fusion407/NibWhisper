@@ -59,6 +59,7 @@ function T:MergeProgress(state)
     local p=self.Profile()
     if state.selected and self:Eligible(self.byID[state.selected.id],p)~=false and newer(state.selected,self.state.selected) then self.state.selected=state.selected;self.clock=math.max(self.clock,state.selected.at) end
     for id,r in pairs(state.guides) do if newer(r,self.state.guides[id]) then self.state.guides[id]=r;self.clock=math.max(self.clock,r.at) end end
+    self:NormalizeDuskwoodProgress()
     self:Refresh();return true
 end
 function T:SetSyncStatus(s)

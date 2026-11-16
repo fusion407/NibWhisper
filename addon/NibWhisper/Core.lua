@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.21"
+addon.VERSION = "0.7.22"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}

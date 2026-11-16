@@ -153,11 +153,62 @@ function T.Parse(raw)
     end
     return s
 end
+-- Keep original step numbers for saved progress and sync. Step 11 already contains
+-- all the shopping items and the cooking note from the three alternate versions.
+local duskwoodID = "7f942d9ae2b1b679"
+local duskwoodHidden = {[12] = true, [13] = true, [14] = true, [15] = true}
+local duskwoodFlightMaps = {[16] = 1433, [18] = 1436}
+local duskwoodTravel = {
+    [16] = [[step
+#label FlyRR
+.goto 1453/0,484.200,-8832.500
+>>Talk to Dungar Longdrink.
+.target Dungar Longdrink
+.fly Redridge >> Fly to Redridge Mountains
+.zone 1433 >> Arrive in Redridge Mountains]],
+    [17] = [[step
+.goto 1431/0,-1213.54,-10531.89
+.subzone 42 >> Travel to Darkshire]],
+    [18] = [[step
+.goto 1431/0,-1258.79,-10513.83
+>>Talk to Felicia Maline. Learn the Darkshire flight path if needed.
+.target Felicia Maline
+.fly Westfall >> Fly to Westfall
+.zone 1436 >> Arrive in Westfall]],
+}
+
+local function visibleStep(g, index, offset)
+    if g.id ~= duskwoodID or offset == 0 then return index + offset end
+    local direction = offset > 0 and 1 or -1
+    for _ = 1, math.abs(offset) do
+        repeat index = index + direction until not duskwoodHidden[index]
+    end
+    return index
+end
+
+function T:NormalizeDuskwoodProgress()
+    local record = self.state.guides[duskwoodID]
+    if not record then return end
+    if record.step >= 12 and record.step <= 14 then record.step = 11 end
+    -- Old versions saved these flights and the approach as unfinished side steps.
+    for i = #(record.sticky or {}), 1, -1 do
+        if duskwoodTravel[record.sticky[i]] then table.remove(record.sticky, i) end
+    end
+    for i = #(record.skipped or {}), 1, -1 do
+        if duskwoodHidden[record.skipped[i]] then table.remove(record.skipped, i) end
+    end
+end
+
 function T:Chapter(g)
     if self.parsed[g.id] then return self.parsed[g.id] end
     local chapter={steps={},labels={}}
     for i, raw in ipairs(D.bodies[g.id]) do
+        if g.id == duskwoodID then
+            if i >= 12 and i <= 14 then raw = "step"
+            else raw = duskwoodTravel[i] or raw end
+        end
         local step=self.Parse(raw); chapter.steps[i]=step
+        if g.id == duskwoodID then step.flightArrival = duskwoodFlightMaps[i] end
         for _, f in ipairs(step.flags) do if f.kind=="label" then chapter.labels[f.value]=i end end
     end
     self.parsed[g.id]=chapter
@@ -378,6 +429,23 @@ function T:Evaluate(g,index,p,q)
     if memo then cached=cached or {};memo[g]=cached;cached[index]=r or false end
     return r
 end
+-- A hearth to Menethil can report either the inn or the surrounding harbor.
+local arrivalAreas = {[2104] = 150}
+
+local function arrivedInArea(area, p)
+    local id = tonumber(area)
+    local name = id and call(C_Map and C_Map.GetAreaInfo, id) or (not id and area)
+    return type(name) == "string" and name ~= "" and (p.subzone == name or p.zone == name)
+end
+
+local function arrivedInZone(destination, p)
+    if not destination then return false end
+    local map = T.MapID(destination)
+    local info = map and call(C_Map and C_Map.GetMapInfo, map)
+    return p.zone == destination or (map ~= nil and p.mapID == map)
+        or (info and info.name == p.zone) == true
+end
+
 function T:EvaluateStep(g,index,p,q)
     local s=self:Chapter(g).steps[index]; if not s then return nil end
     local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={},path={},markers={}}
@@ -439,7 +507,7 @@ function T:EvaluateStep(g,index,p,q)
         end
         local checked = marked[entry] == true
         if kind == "fly" and not done and not checked then r.pendingFlight = true end
-        if kind == "goto" or kind == "subzone" then r.travelChecks = (r.travelChecks or 0) + 1 end
+        if kind == "goto" or kind == "zone" or kind == "subzone" then r.travelChecks = (r.travelChecks or 0) + 1 end
         r.checks=r.checks+1; r.all=r.all and (done==true or checked)
         if not done and not checked and not r.activeEntry then firstPending=lastPoint; r.activeEntry=entry end
         if description~="" then
@@ -605,10 +673,15 @@ function T:EvaluateStep(g,index,p,q)
                 if description~="" then addLine(description,e.display) end
             elseif k=="use" and (description=="" or s.collectionQuests[id]) then
                 if description~="" then addLine(description,e.display) end
+            elseif k=="fly" and s.flightArrival then
+                check(arrivedInZone(s.flightArrival,p),description,nil,e.display,entry,"fly",nil,e.checkboxCondition)
+            elseif k=="zone" and description~="" then
+                check(arrivedInZone(a[1],p),description,nil,e.display,entry,"zone",nil,e.checkboxCondition)
             elseif k=="subzone" and description~="" then
                 local area=a[1]
-                if tonumber(area) then area=call(C_Map and C_Map.GetAreaInfo,tonumber(area)) end
-                local arrived=type(area)=="string" and area~="" and (p.subzone==area or p.zone==area)
+                local parent = arrivalAreas[tonumber(area)]
+                local arrived = arrivedInArea(area,p) or (parent and arrivedInArea(parent,p))
+                if arrived then r.subzoneArrived = true end
                 check(arrived==true,description,nil,e.display,entry,"subzone",nil,e.checkboxCondition)
             elseif not quiet[k] and (description~="" or manualNames[k]) then
                 -- Some of these can be read straight from the game. The rest are ticked by events (see T:GameEvent).
@@ -622,7 +695,8 @@ function T:EvaluateStep(g,index,p,q)
     end
     -- A flight can report the departure zone or an intermediate zone. After landing,
     -- give the client time to update the map and subzone before judging area rules.
-    if r.areaGate and not r.turninReady then
+    local finishedTravel = r.subzoneArrived and r.checks == r.travelChecks and r.all
+    if r.areaGate and not r.turninReady and not finishedTravel then
         if self.wasFlying or (self.flightAreaCheckAfter and (call(GetTime) or 0) < self.flightAreaCheckAfter) then
             r.waitingForArea = true
         elseif r.areaSkip then
@@ -660,6 +734,7 @@ function T:Init()
         db.trailArchive[D.dataset]=nil
     end
     self.state=db.trail;self.state.guides=self.state.guides or {};self.dirty=false
+    self:NormalizeDuskwoodProgress()
     if not self.gossipHooked and C_GossipInfo and C_GossipInfo.SelectOption and hooksecurefunc then
         -- Choosing a dialogue option is what "talk to X to start the escort" steps are waiting for.
         self.gossipHooked = pcall(hooksecurefunc, C_GossipInfo, "SelectOption", function() if not T.choosingTaxi then pcall(T.AutoMark, T, {gossipoption=true}) end end)
@@ -701,11 +776,13 @@ function T:AutoMark(kinds, id, quiet)
     local g, s = self:Current()
     if not g or not s then return 0 end
     local p, q, changes = self.Profile(), quests(), {}
+    local chapter = self:Chapter(g)
     local function track(step)
         local result = self:Evaluate(g, step, p, q)
         if not result or result.skip then return end
         for _, control in pairs(result.controls) do
-            if kinds[control.kind] and not control.marked and not control.automatic and (id == nil or control.merchant == id) then
+            local waitsForArrival = control.kind == "fly" and chapter.steps[step].flightArrival
+            if kinds[control.kind] and not waitsForArrival and not control.marked and not control.automatic and (id == nil or control.merchant == id) then
                 changes[#changes + 1] = {step=step, entry=control.entry, checked=true}
             end
         end
@@ -728,7 +805,7 @@ function T:FlightDestination()
         local result = self:Evaluate(g, step, p, q)
         if not result or result.skip then return nil end
         for _, control in pairs(result.controls) do
-            if control.kind == "fly" and not control.automatic and not control.marked then
+            if control.kind == "fly" and not control.automatic and (not control.marked or chapter.steps[step].flightArrival) then
                 local entry = chapter.steps[control.step] and chapter.steps[control.step].entries[control.entry]
                 local place = entry and trim((entry.args or ""):gsub("%s*<<.*$", ""))
                 if place and place ~= "" then return place end
@@ -855,7 +932,7 @@ function T:NextChapter(g)
 end
 function T:Move(delta,skip)
     local g,s=self:Current();if not g or not s then return end
-    local n=math.max(1,math.min(g.steps+1,s.step+delta))
+    local n=math.max(1,math.min(g.steps+1,visibleStep(g,s.step,delta)))
     local skipped,sticky=P.Array(),P.Array()
     for _,i in ipairs(s.skipped or {}) do if i~=s.step then skipped[#skipped+1]=i end end
     for _,i in ipairs(s.sticky or {}) do sticky[#sticky+1]=i end
@@ -876,6 +953,7 @@ function T:ChapterFinished()
 end
 function T:Browse(index)
     local g, s = self:Current()
+    if g and g.id == duskwoodID and index >= 12 and index <= 14 then index = 11 end
     if not g or not s or index < 1 or index > g.steps or index == s.step then return end
     self.reviewing = true
     self.reviewEvent, self.reviewOpen = nil, nil
@@ -923,10 +1001,10 @@ function T:Advance(p,q)
             local _, detail = next(r.blocked)
             reasons[#reasons+1] = "Step " .. i .. " skipped: " .. (detail and (detail .. " first") or why) .. "."
             i=(r.jump and chapter.labels[r.jump] and chapter.labels[r.jump]>i) and chapter.labels[r.jump] or i+1
-        elseif r.waitingForArea then break
+        elseif r.waitingForArea or (chapter.steps[i].flightArrival and self.wasFlying) then break
         elseif r.sticky and not r.review then
-            -- Keep required travel checkpoints in front so their approach path leads the way.
-            if not r.optional and not r.complete and r.travelChecks == r.checks then break end
+            -- A linked return step can be tagged optional and still be the route's travel checkpoint.
+            if (not r.optional or r.requires) and not r.complete and r.travelChecks == r.checks then break end
             keep(i,r);i=i+1
         elseif not r.review and r.checks == 0 and #r.lines == 0 and not r.point then i=i+1
         elseif r.complete and not p.dead and A.db.trailAuto~=false then
@@ -1216,7 +1294,7 @@ end
 function T:RefreshPreview(g, s, p, q, current)
     for offset = -1, 1 do
         local row = self.preview[offset + 2]
-        local index = s and s.step + offset
+        local index = s and visibleStep(g,s.step,offset)
         local evaluated = offset == 0 and current or nil
         if g and index and offset ~= 0 and index >= 1 and index <= g.steps then evaluated = self:Evaluate(g,index,p,q) end
         row.index = evaluated and index or nil
@@ -2090,10 +2168,15 @@ function T:ShowSteps()
             row:SetScript("OnLeave", function() GameTooltip:Hide() end)
             f.rows[i] = row
         end
-        local previous = trackerButton(f, "<  Previous", 110, function() f.from = math.max(1, f.from - STEP_ROWS); T:ListSteps() end)
+        local previous = trackerButton(f, "<  Previous", 110, function()
+            local guide = T:Current()
+            if guide then f.from = math.max(1, visibleStep(guide, f.from, -STEP_ROWS)); T:ListSteps() end
+        end)
         local nextPage = trackerButton(f, "Next  >", 110, function()
-            local chapter = T:Current()
-            if chapter and f.from + STEP_ROWS <= chapter.steps then f.from = f.from + STEP_ROWS; T:ListSteps() end
+            local guide = T:Current()
+            if not guide then return end
+            local next = visibleStep(guide, f.from, STEP_ROWS)
+            if next <= guide.steps then f.from = next; T:ListSteps() end
         end)
         previous:SetPoint("BOTTOMLEFT", 14, 16); previous:SetHeight(24)
         nextPage:SetPoint("BOTTOMRIGHT", -14, 16); nextPage:SetHeight(24)
@@ -2105,11 +2188,11 @@ function T:ShowSteps()
         f:SetScript("OnMouseWheel", function(_, delta)
             local chapter = T:Current()
             if not chapter then return end
-            f.from = math.max(1, math.min(math.max(1, chapter.steps - STEP_ROWS + 1), f.from - delta * 3))
+            f.from = math.max(1, math.min(math.max(1, chapter.steps - STEP_ROWS + 1), visibleStep(chapter, f.from, -delta * 3)))
             T:ListSteps()
         end)
     end
-    f.from = math.max(1, math.min(s.step, g.steps) - 3)
+    f.from = math.max(1, visibleStep(g, math.min(s.step, g.steps), -3))
     f:Show()
     self:ListSteps()
 end
@@ -2119,6 +2202,7 @@ function T:ListSteps()
     local f = self.stepsFrame
     if not g or not f then return end
     f.from = math.max(1, math.min(f.from, g.steps))
+    if g.id == duskwoodID and duskwoodHidden[f.from] then f.from = visibleStep(g, f.from, 1) end
     local p, q = self.Profile(), quests()
     p.memo = {}
     -- A skipped step that has since been finished counts as done, not skipped.
@@ -2131,9 +2215,9 @@ function T:ListSteps()
     local current = math.min(s.step, g.steps)
     f.summary:SetText(s.step > g.steps and string.format("Chapter complete  ·  %d steps", g.steps)
         or string.format("Step %d of %d  ·  %d%% through  ·  %d skipped", s.step, g.steps, math.floor((s.step - 1) / g.steps * 100), skippedCount))
-    f.range:SetText(string.format("Steps %d–%d of %d", f.from, math.min(g.steps, f.from + STEP_ROWS - 1), g.steps))
-    for i, row in ipairs(f.rows) do
-        local n = f.from + i - 1
+    f.range:SetText(string.format("Steps %d–%d of %d", f.from, math.min(g.steps, visibleStep(g, f.from, STEP_ROWS - 1)), g.steps))
+    local n = f.from
+    for _, row in ipairs(f.rows) do
         local r = n <= g.steps and self:Evaluate(g, n, p, q)
         row.step = r and n or nil
         row:SetShown(r ~= nil and r ~= false)
@@ -2156,5 +2240,6 @@ function T:ListSteps()
             row.bg:SetColorTexture(state.bg[1], state.bg[2], state.bg[3], 1)
             row.accent:SetShown(state == stepStates.current)
         end
+        n = visibleStep(g, n, 1)
     end
 end

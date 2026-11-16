@@ -1,4 +1,4 @@
-# Nib Trail 0.7.21 in-game QA
+# Nib Trail 0.7.22 in-game QA
 
 ## Desktop: first five minutes
 
@@ -52,6 +52,8 @@
 28. In the **23–24 Wetlands** dungeon route, use a Mage, Paladin, or Shaman carrying **Book: The Powers Below**. Start at step 5 in Wetlands. Verify the flight to Ironforge stays visible, step 6 stays pending during the flight, and the waypoint leads to Gerrig Bonegrip after landing.
 
 29. Leave **Targets** open as the guide advances to a step with different targets, then one with none. Check that the rows change and the empty list reads **There are no targets.** With several same-name mobs visible on nameplates, click the row repeatedly outside combat and check that it cycles through them. Check that an available target has a green square. Keep a dead mob targeted and verify the grey name and red **DEAD** label. Advance during combat and check that the list catches up when combat ends.
+
+30. In the **24–27 Duskwood/Redridge/Stockades** dungeon route, finish the shopping list at step 11. Check that the guide waits for the flight to land in Redridge at step 16, for arrival in Darkshire at step 17, and for landing in Westfall at step 18 before showing step 19.
 
 ## Desktop → laptop → desktop
 

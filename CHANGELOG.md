@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.22
+- The Duskwood dungeon route uses one Auctioneer Jaxon checklist. Redridge, Darkshire, and Westfall stay active until you arrive or click Done.
+- Wetlands waits for the return to Menethil Harbor, and the mage teleport step finishes on arrival in Ironforge.
+
 ## 0.7.21
 - Nib Targets follows the guide, shows a green indicator for available targets, cycles same-name nameplates outside combat, and labels dead targets.
 - Area checks wait for flights to arrive. Required travel steps, including the Thelgen Rock cave approach, keep the arrow until you reach the destination.
