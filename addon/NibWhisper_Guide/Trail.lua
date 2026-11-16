@@ -438,6 +438,8 @@ function T:EvaluateStep(g,index,p,q)
             return
         end
         local checked = marked[entry] == true
+        if kind == "fly" and not done and not checked then r.pendingFlight = true end
+        if kind == "goto" or kind == "subzone" then r.travelChecks = (r.travelChecks or 0) + 1 end
         r.checks=r.checks+1; r.all=r.all and (done==true or checked)
         if not done and not checked and not r.activeEntry then firstPending=lastPoint; r.activeEntry=entry end
         if description~="" then
@@ -576,6 +578,7 @@ function T:EvaluateStep(g,index,p,q)
                 elseif status==(gatesNeg[k]==true) then r.skip=true; r.skipReason="quest condition not met" end
                 if description~="" then addLine(description,e.display,nil,nil,lastPoint) end
             elseif k=="zoneskip" or k=="subzoneskip" then
+                r.areaGate = true
                 local pass
                 if k=="subzoneskip" then
                     -- The route names the area by number. Compare by its name, which is what the game reports for the player.
@@ -617,9 +620,18 @@ function T:EvaluateStep(g,index,p,q)
             elseif description~="" then addLine(description,e.display) end
         end
     end
-    if r.areaSkip and not r.turninReady then r.skip=true; r.skipReason=r.skipReason or "you are not in that area" end
+    -- A flight can report the departure zone or an intermediate zone. After landing,
+    -- give the client time to update the map and subzone before judging area rules.
+    if r.areaGate and not r.turninReady then
+        if self.wasFlying or (self.flightAreaCheckAfter and (call(GetTime) or 0) < self.flightAreaCheckAfter) then
+            r.waitingForArea = true
+        elseif r.areaSkip then
+            r.skipForArea = not r.skip
+            r.skip=true; r.skipReason=r.skipReason or "you are not in that area"
+        end
+    end
     r.point=(firstPending and not firstPending.hidden and firstPending) or r.points[1]
-    if r.checks == 0 and next(r.blocked) then r.skip=true; r.skipReason="missing quest prerequisite" end
+    if r.checks == 0 and next(r.blocked) then r.skip=true; r.skipForArea=nil; r.skipReason="missing quest prerequisite" end
     if r.loop then local dist;for _, point in ipairs(r.points) do local n=self.Distance(point,p);if n and (not dist or n<dist) then dist=n;r.point=point end end end
     if r.checks==0 and r.point and r.point.radius and #r.lines==0 and #r.points==1 then local n=self.Distance(r.point,p);r.checks=1;r.all=n~=nil and n<=r.point.radius end
     if #r.lines==0 and r.point then r.lines[1]=string.format("Travel to map %d at %.2f, %.2f",r.point.mapID,r.point.x,r.point.y) end
@@ -871,6 +883,14 @@ function T:Browse(index)
     self:Write(g,index,s.skipped,s.sticky)
     self:Refresh()
 end
+function T:PendingSideFlight(g, sticky, p, q)
+    for _, index in ipairs(sticky or {}) do
+        local result = self:Evaluate(g, index, p, q)
+        if result and result.pendingFlight and not result.skip then return true end
+    end
+    return false
+end
+
 function T:Advance(p,q)
     local g,s=self:Current();if not g or not s or self:Eligible(g,p)==false then return end
     local chapter=self:Chapter(g);local i=s.step;local sticky=P.Array();local skippedSet={};local mutated=false
@@ -895,12 +915,19 @@ function T:Advance(p,q)
         local r=self:Evaluate(g,i,p,q);if not r then break end
         local blocked=r.requires and chapter.labels[r.requires]
         if blocked and (blocked>=i or skippedSet[blocked]) then break end
+        -- A flight attached to a later checkpoint may already be in the side steps
+        -- even though the player hasn't boarded yet.
+        if r.skipForArea and self:PendingSideFlight(g, sticky, p, q) then break end
         if r.skip and not r.review then
             local why = r.skipReason or "route condition does not apply"
             local _, detail = next(r.blocked)
             reasons[#reasons+1] = "Step " .. i .. " skipped: " .. (detail and (detail .. " first") or why) .. "."
             i=(r.jump and chapter.labels[r.jump] and chapter.labels[r.jump]>i) and chapter.labels[r.jump] or i+1
-        elseif r.sticky and not r.review then keep(i,r);i=i+1
+        elseif r.waitingForArea then break
+        elseif r.sticky and not r.review then
+            -- Keep required travel checkpoints in front so their approach path leads the way.
+            if not r.optional and not r.complete and r.travelChecks == r.checks then break end
+            keep(i,r);i=i+1
         elseif not r.review and r.checks == 0 and #r.lines == 0 and not r.point then i=i+1
         elseif r.complete and not p.dead and A.db.trailAuto~=false then
             -- A finished step never holds the guide up, including one that was already finished on arrival
@@ -1309,6 +1336,7 @@ function T:RenderRows(lines, controls, points, links)
 end
 
 function T:Refresh(p, q)
+    self:RefreshTargets(p, q)
     if not self.frame or not self.frame:IsShown() then return end
     p, q = p or self.Profile(), q or quests()
     local g, s = self:Current()
@@ -1340,7 +1368,13 @@ function T:Refresh(p, q)
             local requiredStep = self:Chapter(g).labels[r.requires]
             if requiredStep and requiredStep >= s.step then lines[#lines + 1] = "Complete the route checkpoint at step " .. requiredStep .. " first." end
         end
-        if r.skip and not next(r.blocked) then lines[#lines + 1] = "This step is inactive: " .. (r.skipReason or "route condition does not apply") .. "." end
+        if r.skipForArea and self:PendingSideFlight(g, s.sticky, p, q) then
+            lines[#lines + 1] = "Take the flight shown below to reach this step."
+        elseif r.skip and not next(r.blocked) then
+            lines[#lines + 1] = "This step is inactive: " .. (r.skipReason or "route condition does not apply") .. "."
+        elseif r.waitingForArea then
+            lines[#lines + 1] = "Waiting for the flight to land and your location to update."
+        end
         for i, line in ipairs(r.lines) do
             lines[#lines + 1] = r.display[i] or line
             controls[#lines] = r.controls[i]
@@ -1610,20 +1644,15 @@ function T:RestoreAfterDeath()
     if self.keepVisible then self.restoreUntil = (call(GetTime) or 0) + 5 end
 end
 
--- Names the current step (and its side steps) asks you to find.
-function T:TargetNames()
+-- Names the current step asks you to find.
+function T:TargetNames(p, q)
     local names, seen = {}, {}
     local g, s = self:Current()
     if g and s then
-        local profile, readQuest = self.Profile(), quests()
-        local function append(step)
-            local result = self:Evaluate(g, step, profile, readQuest)
-            for _, name in ipairs(result and result.targets or {}) do
-                if not seen[name] and #names < 10 then names[#names+1] = name; seen[name] = true end
-            end
+        local result = self:Evaluate(g, s.step, p or self.Profile(), q or quests())
+        for _, name in ipairs(result and result.targets or {}) do
+            if not seen[name] and #names < 10 then names[#names+1] = name; seen[name] = true end
         end
-        append(s.step)
-        for _, step in ipairs(s.sticky or {}) do if step < s.step then append(step) end end
     end
     return names, s and s.step
 end
@@ -1633,6 +1662,95 @@ local markers = {
     {index = 7, name = "cross", icon = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_7"},
 }
 local TARGET_ROW, TARGET_GAP, TARGET_TOP, TARGET_BOTTOM = 26, 3, 62, 26
+
+local function targetUnits(names)
+    local matches = {}
+    for _, name in ipairs(names) do matches[name] = {} end
+    if not next(matches) then return matches end
+    local function read(unit)
+        local name = call(UnitName, unit)
+        local list = name and matches[name]
+        local guid = list and call(UnitGUID, unit)
+        if not guid then return end
+        local dead = call(UnitIsDeadOrGhost, unit)
+        local match = {unit = unit, guid = guid, dead = dead == true or dead == 1}
+        if unit == "target" then list.selected = match
+        else list[#list + 1] = match end
+    end
+    for i = 1, 40 do read("nameplate" .. i) end
+    -- The client can expose visible nameplates with a token beyond the usual range.
+    local extra = {}
+    for _, plate in ipairs(call(C_NamePlate and C_NamePlate.GetNamePlates) or {}) do
+        local unit = plate.namePlateUnitToken
+        local index = type(unit) == "string" and tonumber(unit:match("^nameplate(%d+)$"))
+        if index and index > 40 then extra[index] = unit end
+    end
+    local indices = {}
+    for index in pairs(extra) do indices[#indices + 1] = index end
+    table.sort(indices)
+    for _, index in ipairs(indices) do read(extra[index]) end
+    read("target")
+    return matches
+end
+
+local function nextTarget(name)
+    local matches = targetUnits({name})[name]
+    local selected = matches.selected
+    local firstAlive
+    for i, match in ipairs(matches) do
+        if selected and match.guid == selected.guid then return matches[i % #matches + 1].unit end
+        if match.dead == false then firstAlive = firstAlive or match.unit end
+    end
+    return firstAlive or (matches[1] and matches[1].unit)
+end
+
+function T:RefreshTargets(p, q)
+    local f = self.targetWindow
+    if not f or not f:IsShown() then return end
+    local names, step = self:TargetNames(p, q)
+    local locked = call(InCombatLockdown)
+    local previous = f.names or {}
+    local changed = not f.names or step ~= f.step or #names ~= #previous
+    for i, name in ipairs(names) do
+        if name ~= previous[i] then changed = true; break end
+    end
+    if changed and not locked then
+        f.names, f.step = names, step
+        for i, row in ipairs(f.rows) do
+            local name = names[i]
+            row.name = name
+            row.target:SetAttribute("macrotext", name and ("/targetexact " .. name) or nil)
+            row.target.caption:SetText(name or "")
+            for _, mark in ipairs(row.marks) do
+                mark:SetAttribute("macrotext", name and ("/targetexact " .. name .. "\n/tm " .. mark.marker.index) or nil)
+            end
+        end
+        self:LayoutTargets()
+    end
+    local subtitle = f.step and string.format("Step %d  ·  click a name to target it", f.step) or "Choose a route first"
+    f.subtitle:SetText(locked and changed and "Target list updates after combat" or subtitle)
+    local nearby = targetUnits(f.names or {})
+    for _, row in ipairs(f.rows) do
+        local matches = nearby[row.name] or {}
+        local alive, dead
+        for _, match in ipairs(matches) do
+            if match.dead == true then dead = true
+            elseif match.dead == false then alive = true end
+        end
+        local state
+        if matches.selected then state = matches.selected.dead end
+        if state == nil then
+            if alive then state = false elseif dead then state = true end
+        end
+        row.targetable:SetShown(matches.selected ~= nil or #matches > 0)
+        row.status:SetText(state == true and "DEAD" or "")
+        if state == true then
+            row.target.caption:SetTextColor(0.53, 0.56, 0.64)
+        else
+            row.target.caption:SetTextColor(1, 1, 1)
+        end
+    end
+end
 
 -- A small secure button: one click targets the named enemy and runs the macro text.
 local function secureButton(parent)
@@ -1658,7 +1776,6 @@ end
 
 function T:ShowTargets()
     if call(InCombatLockdown) then A:Notice("Open Nib Targets after combat.", true); return end
-    local names, step = self:TargetNames()
     local f = self.targetWindow
     if not f then
         f = window("NibTrailTargets", 300, 330, 130, false)
@@ -1675,7 +1792,7 @@ function T:ShowTargets()
         f.subtitle:SetTextColor(0.67, 0.75, 0.87)
         f.empty = label(f, nil, 14, -TARGET_TOP - 4)
         f.empty:SetPoint("RIGHT", -14, 0)
-        f.empty:SetText("This step has no named targets.")
+        f.empty:SetText("There are no targets.")
         f.empty:SetTextColor(0.62, 0.67, 0.79)
         f.more = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         f.more:SetPoint("BOTTOMLEFT", 14, 9); f.more:SetPoint("BOTTOMRIGHT", -28, 9); f.more:SetJustifyH("LEFT")
@@ -1689,12 +1806,29 @@ function T:ShowTargets()
             -- The name: click to target it.
             row.target = secureButton(row)
             row.target:SetPoint("TOPLEFT", 0, 0); row.target:SetPoint("BOTTOMRIGHT", -2 - #markers * 25, 0)
-            row.target.caption = label(row.target, "GameFontHighlight", 9, -6)
-            row.target.caption:SetPoint("RIGHT", -4, 0)
+            row.targetable = row.target:CreateTexture(nil, "OVERLAY")
+            row.targetable:SetSize(6, 6); row.targetable:SetPoint("LEFT", 8, 0)
+            row.targetable:SetColorTexture(0.36, 0.9, 0.62, 1); row.targetable:Hide()
+            row.status = row.target:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            row.status:SetPoint("RIGHT", -4, 0)
+            row.status:SetTextColor(1, 0.35, 0.35)
+            row.target.caption = label(row.target, "GameFontHighlight", 20, -6)
+            row.target.caption:SetPoint("RIGHT", -41, 0)
             if row.target.caption.SetWordWrap then row.target.caption:SetWordWrap(false) end
             A.UI:Paint(row.target, "HIGHLIGHT", 0.33, 0.41, 0.58, 0.45)
+            row.target:SetScript("PreClick", function(b)
+                if not row.name or call(InCombatLockdown) then return end
+                local unit = nextTarget(row.name)
+                local exact = "/targetexact " .. row.name
+                -- Give /target both a unit condition and an explicit argument. Never reuse a
+                -- nameplate token in combat, where PreClick cannot update the secure action.
+                b:SetAttribute("macrotext", unit and ("/target [nocombat,@" .. unit .. ",exists] " .. unit .. "\n/targetexact [combat] " .. row.name) or exact)
+            end)
             row.target:SetScript("OnEnter", function(b)
-                GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:AddLine("Target " .. (row.name or "")); GameTooltip:Show()
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:AddLine("Target " .. (row.name or ""))
+                GameTooltip:AddLine("Green square: a matching target is available.", 0.85, 0.9, 0.9, true)
+                GameTooltip:AddLine("Click again to cycle matching nameplates outside combat.", 0.85, 0.9, 0.9, true)
+                GameTooltip:Show()
             end)
             row.target:SetScript("OnLeave", function() GameTooltip:Hide() end)
             -- One button per raid marker: targets the enemy and puts the marker over its head.
@@ -1722,18 +1856,8 @@ function T:ShowTargets()
         f.afterResize = function() T:LayoutTargets() end
         f:SetScript("OnSizeChanged", function() T:LayoutTargets() end)
     end
-    f.names = names
-    f.subtitle:SetText(step and string.format("Step %d  ·  click a name to target it", step) or "Choose a route first")
-    for i, row in ipairs(f.rows) do
-        local name = names[i]
-        row.name = name
-        row.target:SetAttribute("macrotext", name and ("/targetexact " .. name) or nil)
-        row.target.caption:SetText(name or "")
-        for _, mark in ipairs(row.marks) do
-            mark:SetAttribute("macrotext", name and ("/targetexact " .. name .. "\n/tm " .. mark.marker.index) or nil)
-        end
-    end
     f:Show()
+    self:RefreshTargets()
     self:LayoutTargets()
 end
 function T:Tick(force)
@@ -1742,13 +1866,21 @@ function T:Tick(force)
     if self.clearAfterCombat and not call(InCombatLockdown) then self:ClearPin() end
     if self.keepVisible and self.restoreUntil and now <= self.restoreUntil and self.frame and not self.frame:IsShown() then self.frame:Show() end
     if self.SyncTick then self:SyncTick(now) end
-    if not self.frame or not self.frame:IsShown() or (not force and now-(self.lastTick or -10)<0.45) then return end
+    if not force and now-(self.lastTick or -10)<0.45 then return end
+    if not self.frame or not self.frame:IsShown() then
+        if self.targetWindow and self.targetWindow:IsShown() then
+            self.lastTick=now
+            self:RefreshTargets()
+        end
+        return
+    end
     self.lastTick=now
     local p,q=self.Profile(),quests()
     p.memo={}
     -- On a flight: the step that said to fly is done.
     local flying=call(UnitOnTaxi,"player")==true
     if flying and not self.wasFlying then self:AutoMark({fly=true},nil,true) end
+    if not flying and self.wasFlying then self.flightAreaCheckAfter = now + 1 end
     self.wasFlying=flying
     if self.reviewing then
         -- Browsing pauses the guide only until the game moves on: the step being looked at gets finished,

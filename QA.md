@@ -1,4 +1,4 @@
-# Nib Trail 0.7.20 in-game QA
+# Nib Trail 0.7.21 in-game QA
 
 ## Desktop: first five minutes
 
@@ -48,6 +48,10 @@
 26. New in 0.7.15. In 21-23 Ashenvale/Stonetalon (dungeon route) step 26, check the arrow points to the first waypoint and the guide shows Path 1/6, and that it moves on as you reach each point until Ratchet. Arriving in Ratchet should finish the step.
 
 27. New in 0.7.20. On a step that says Fly to a place, talk to the flight master with the guide open. The flight map should open and Nib should take that flight. Try again holding Shift: the map should open and wait for you. Switch Auto flights off in Nib Options and check it no longer flies.
+
+28. In the **23–24 Wetlands** dungeon route, use a Mage, Paladin, or Shaman carrying **Book: The Powers Below**. Start at step 5 in Wetlands. Verify the flight to Ironforge stays visible, step 6 stays pending during the flight, and the waypoint leads to Gerrig Bonegrip after landing.
+
+29. Leave **Targets** open as the guide advances to a step with different targets, then one with none. Check that the rows change and the empty list reads **There are no targets.** With several same-name mobs visible on nameplates, click the row repeatedly outside combat and check that it cycles through them. Check that an available target has a green square. Keep a dead mob targeted and verify the grey name and red **DEAD** label. Advance during combat and check that the list catches up when combat ends.
 
 ## Desktop → laptop → desktop
 

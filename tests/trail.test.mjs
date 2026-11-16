@@ -239,6 +239,49 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  local grip;for _,child in ipairs(tw.children or {}) do grip=child end
  combat=true;tw:SetHeight(150);T:LayoutTargets();assert(tw.rows[6]:IsShown(),'nothing on a window with secure buttons changes during combat');combat=false
  T:ShowTargets();assert(not tw.rows[2]:IsShown(),'reopening lists the step names again')
+ local oldUnitName,oldUnitGUID,oldDead=UnitName,UnitGUID,UnitIsDeadOrGhost
+ local oldNamePlate=C_NamePlate
+ C_NamePlate={GetNamePlates=function() return {{namePlateUnitToken='nameplate43'}} end}
+ local current,units=nil,{
+   nameplate1={id='one',dead=false},nameplate2={id='two',dead=false},nameplate43={id='three',dead=false}
+ }
+ local function unitInfo(unit) return units[unit=='target' and current or unit] end
+ function UnitName(unit) if unitInfo(unit) then return 'Deputy Willem' end;return oldUnitName(unit) end
+ function UnitGUID(unit) return unitInfo(unit) and unitInfo(unit).id or oldUnitGUID(unit) end
+ function UnitIsDeadOrGhost(unit)
+   if unitInfo(unit) then return unitInfo(unit).dead end
+   return oldDead(unit)
+ end
+ local function clickMob(expected)
+   first.target.scripts.PreClick(first.target)
+   local macro=first.target.attributes.macrotext
+   local condition,argument=macro:match('^/target %[%s*nocombat,@(nameplate%d+),exists%] (nameplate%d+)')
+   assert(condition==expected and argument==expected,'secure /target names the next unit explicitly: '..macro)
+   current=argument
+ end
+ clickMob('nameplate1');T:RefreshTargets()
+ assert(first.targetable:IsShown() and first.status:GetText()=='','a targetable live unit has a green indicator and no status text')
+ clickMob('nameplate2')
+ units.nameplate2.dead=true;T:RefreshTargets()
+ assert(first.status:GetText()=='DEAD','dead selected unit takes precedence over live duplicates')
+ clickMob('nameplate43')
+ clickMob('nameplate1')
+ local previousTargets=T.state.selected
+ local targetRoute={id='target-fixture',title='Target fixture',mode='Solo route',faction='Alliance',conditions={},steps=2}
+ T.byID[targetRoute.id]=targetRoute
+ T.parsed[targetRoute.id]={steps={T.Parse('step\\n.target Next NPC\\n>> Talk to the next NPC'),T.Parse('step\\n>> Keep walking')},labels={}}
+ T:Write(targetRoute,1);T.state.selected={id=targetRoute.id}
+ combat=true
+ local lockedMacro=first.target.attributes.macrotext
+ first.target.scripts.PreClick(first.target);T:Refresh()
+ assert(first.target.attributes.macrotext==lockedMacro and tw.subtitle:GetText()=='Target list updates after combat')
+ combat=false;T:Tick(true)
+ assert(first.target.attributes.macrotext=='/targetexact Next NPC' and first.status:GetText()=='' and not first.targetable:IsShown(),'the open picker refreshes after combat and has no indicator for unobserved units')
+ T:Move(1)
+ assert(not first:IsShown() and first.target.attributes.macrotext==nil and tw.empty:IsShown() and tw.empty:GetText()=='There are no targets.')
+ T.state.selected=previousTargets;T:Refresh();tw:Hide()
+ UnitName,UnitGUID,UnitIsDeadOrGhost=oldUnitName,oldUnitGUID,oldDead
+ C_NamePlate=oldNamePlate
  -- Quest automation acts only on the quest the visible step names, and only when switched on.
  local questCalls={}
  C_GossipInfo={GetActiveQuests=function() return {} end,GetAvailableQuests=function() return {{questID=999},{questID=783}} end,SelectAvailableQuest=function(id) questCalls[#questCalls+1]='select '..id end}
@@ -448,6 +491,7 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  T:Tick(true);assert(at()==1)
  flying=true;T:Tick(true);T:Tick(true);assert(at()==2,'taking the flight finishes the fly step: '..at());flying=false
  fire(nil,'UNIT_SPELLCAST_SUCCEEDED','target','cast',8690);T:Tick(true);assert(at()==2,'someone else hearthing is ignored')
+ clock=clock+1.1
  fire(nil,'UNIT_SPELLCAST_SUCCEEDED','player','cast',8690);T:Tick(true);assert(at()==3,'hearthing finishes the hearth step')
  fire(nil,'HEARTHSTONE_BOUND');T:Tick(true);assert(at()==4,'binding finishes the set-home step')
  ERR_NEWTAXIPATH='New flight path discovered!'
@@ -510,6 +554,57 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(T:Evaluate(ashen,19,pr2,T.QuestReader()).skip,'with a Wailing Caverns quest the hearth is skipped')
  active[wcIds[1]]=nil;active[1023]=nil;complete[991]=nil
  C_QuestLog.ReadyForTurnIn=realReady;C_Map.GetAreaInfo=nil
+ -- Wetlands 5 is a side-step flight. Step 6 needs Ironforge and The Powers Below book.
+ local wetlands
+ for _, chapter in ipairs(T.data.chapters) do
+   if chapter.title=='23-24 Wetlands' and chapter.mode=='Dungeon route' then wetlands=chapter;break end
+ end
+ assert(wetlands and wetlands.steps==90)
+ local oldMap,oldWorld,oldIronforge,oldGetItem=C_Map.GetBestMapForUnit,C_Map.GetWorldPosFromMapPos,T.maps.Ironforge,GetItemCount
+ local oldClass=UnitClass
+ function UnitClass() return 'Paladin','PALADIN' end
+ local map=1437
+ T.maps.Ironforge=1455
+ C_Map.GetBestMapForUnit=function() return map end
+ C_Map.GetWorldPosFromMapPos=function(id,v)
+   if (id==1455 or id==1437) and v then return 0,{GetXY=function() return -2000-v.y*4000,1000-v.x*4000 end} end
+   return oldWorld(id,v)
+ end
+ local hasBook=true
+ function GetItemCount(id) return id==5352 and hasBook and 1 or 0 end
+ T.state.selected={id=wetlands.id};T:Write(wetlands,5);T.reviewing=false
+ local function wetStep() return T.state.guides[wetlands.id].step end
+ T:Tick(true)
+ assert(wetStep()==6 and T.state.guides[wetlands.id].sticky[1]==5,'step 6 waits in Wetlands while the Ironforge flight is pending')
+ assert(T.currentPoint and T.currentPoint.mapID==1437,'before takeoff, preserve the flight master waypoint')
+ flying=true;T:Tick(true);map=1426;T:Tick(true)
+ assert(wetStep()==6,'an intermediate taxi zone cannot skip the Ironforge step')
+ flying=false;T:Tick(true)
+ assert(wetStep()==6,'landing with a stale map cannot skip it')
+ map=1455;clock=clock+1.1;T:Tick(true)
+ assert(wetStep()==6 and T.currentPoint and T.currentPoint.mapID==1455 and waypoint[1]==1455,'Gerrig Bonegrip has a TomTom waypoint after landing')
+ hasBook=false
+ assert(T:Evaluate(wetlands,6,T.Profile(),T.QuestReader()).skip,'the optional book rule still applies')
+ -- The required entrance stays ahead of the cave's kill step despite #completewith.
+ local oldWetPosition=C_Map.GetPlayerMapPosition
+ map=1437
+ local entrance=T:Evaluate(wetlands,56,T.Profile(),T.QuestReader()).path
+ assert(#entrance==2 and entrance[1].hidden and entrance[2].radius==25)
+ local caveX,caveY=.3,.3
+ C_Map.GetPlayerMapPosition=function() return {GetXY=function() return caveX,caveY end} end
+ T:Write(wetlands,56,{},{});T:Tick(true)
+ assert(wetStep()==56 and T.currentPoint.x==entrance[1].x and T.currentPoint.y==entrance[1].y,'step 56 leads to the approach waypoint first')
+ caveX,caveY=entrance[1].x/100,entrance[1].y/100
+ T:Tick(true)
+ assert(wetStep()==56 and T.currentPoint.x==entrance[2].x and T.currentPoint.y==entrance[2].y,'the approach waypoint leads to the entrance')
+ caveX,caveY=entrance[2].x/100,entrance[2].y/100
+ active[98282]=true
+ T:Tick(true)
+ assert(wetStep()==57 and #T.state.guides[wetlands.id].sticky==0,'arrival advances to the cave objective with no unfinished entrance reminder')
+ active[98282]=nil;C_Map.GetPlayerMapPosition=oldWetPosition
+ C_Map.GetBestMapForUnit,C_Map.GetWorldPosFromMapPos,T.maps.Ironforge,GetItemCount=oldMap,oldWorld,oldIronforge,oldGetItem
+ UnitClass=oldClass
+ T.state.selected={id=auto.id}
  -- Step 75 of the same chapter: collect 5 bracers for quest 1016. Accepting the quest does not finish it.
  local bags={}
  local realItem=C_Item

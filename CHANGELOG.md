@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.21
+- Nib Targets follows the guide, shows a green indicator for available targets, cycles same-name nameplates outside combat, and labels dead targets.
+- Area checks wait for flights to arrive. Required travel steps, including the Thelgen Rock cave approach, keep the arrow until you reach the destination.
+
 ## 0.7.20
 - Auto flights: on a step that says Fly to a place, talking to the flight master opens the flight map and takes that flight. Hold Ctrl or Shift to choose by hand, or switch Auto flights off in Nib Options.
 
