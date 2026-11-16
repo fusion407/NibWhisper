@@ -2,7 +2,7 @@
 ## Title: Nib Whisper: AI Assistant
 ## Notes: Nib's chat, mascot, inventory notes and the helper bridge. Works with or without the Leveling Guide.
 ## Author: Fusion
-## Version: 0.7.18
+## Version: 0.7.19
 ## Group: NibWhisper
 ## IconTexture: Interface\Icons\INV_Misc_Fish_02
 ## X-Website: https://github.com/fusion407/NibWhisper

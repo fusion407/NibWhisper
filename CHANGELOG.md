@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.19
+- Fixed: the arrow could point at places the route marks as dangers to avoid, such as Horde guard camps, instead of the destination. Those spots are no longer treated as destinations.
+
 ## 0.7.18
 - Fixed: steps that ask you to collect items for a quest were counted as done as soon as you accepted the quest, so the guide skipped them. They now finish when you hold the items, or when the quest is handed in. This affected 1,638 steps.
 

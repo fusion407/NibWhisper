@@ -1,4 +1,4 @@
-# Nib Trail 0.7.18 in-game QA
+# Nib Trail 0.7.19 in-game QA
 
 ## Desktop: first five minutes
 

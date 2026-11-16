@@ -584,6 +584,13 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(#T.state.guides[auto.id].sticky==1,'the saved list is repaired: '..#T.state.guides[auto.id].sticky)
  T:Write(auto,1,{},{1});T.reviewing=false;T:Tick(true)
  assert(at()==2 and #T.state.guides[auto.id].sticky==1,'passing the step again does not add it twice')
+ -- Waypoints with radius 0 mark places to avoid (guard camps). The arrow points at the real destination.
+ fixture('step\\n.goto 1429,40,40\\n.goto 1429,10,10,0\\n.goto 1429,20,20,0\\n>> Be careful about the guards\\n>> Talk to Jarrodenus\\n.fp Azshara >> Get the Azshara flight path','step\\n>> Rest here')
+ auto.steps=2;T.state.guides[auto.id].marks=nil;T:Write(auto,1);T.reviewing=false;T.pinIndex=nil;T.clickedPoint=nil
+ local guarded=T:Evaluate(auto,1,T.Profile(),T.QuestReader())
+ assert(guarded.point.x==40 and #guarded.points==1 and #guarded.markers==2,'the marked camps are not destinations: '..guarded.point.x)
+ T:Tick(true);assert(T.currentPoint.x==40 and not T.nav:GetText():find('Pin',1,true),'the arrow goes to the destination, with nothing to cycle to: '..T.nav:GetText())
+ assert(T.Point('1429,10,10,0').marker and not T.Point('1429,10,10,20,0').marker and not T.Point('1429,10,10').marker)
  -- A step that tracks one part of a quest also shows where the whole quest stands.
  fixture('step\\n.complete 2098,3 >> Loot the Bottom of the Key','step\\n>> Rest here')
  auto.steps=2;active[2098]=true;T.state.guides[auto.id].marks=nil;T:Write(auto,1)

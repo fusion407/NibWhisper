@@ -197,7 +197,8 @@ function T.Point(args)
         x,y=nx*100,ny*100
     end
     if not P.IsFinite(x) or not P.IsFinite(y) or x<0 or x>100 or y<0 or y>100 then return nil end
-    return {mapID=id,x=x,y=y,radius=radius and radius>0 and radius or nil, hidden=a[5]~=nil and radius~=nil and radius>0}
+    -- Radius 0 with no further option marks a spot to know about (a guard camp, say). It is never a destination.
+    return {mapID=id,x=x,y=y,radius=radius and radius>0 and radius or nil, hidden=a[5]~=nil and radius~=nil and radius>0, marker=radius==0 and a[5]==nil}
 end
 function T.Distance(point,p)
     if not point or not p.mapID or p.x==nil or p.y==nil then return nil end
@@ -379,7 +380,7 @@ function T:Evaluate(g,index,p,q)
 end
 function T:EvaluateStep(g,index,p,q)
     local s=self:Chapter(g).steps[index]; if not s then return nil end
-    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={},path={}}
+    local r={lines={},display={},controls={},linePoints={},links={},points={},targets={},questIds={},checks=0,all=true,blocked={},questParts={},path={},markers={}}
     local m=self.Matches(s.condition,p);if m==false then r.skip=true;r.skipReason="does not apply to your character";return r elseif m==nil then r.review=true end
     for _, f in ipairs(s.flags) do
         local active=self.Matches(f.condition,p)
@@ -452,10 +453,14 @@ function T:EvaluateStep(g,index,p,q)
             if k=="goto" or k=="waypoint" then
                 local point=self.Point(args)
                 if point then
-                    point.title=description~="" and description or g.title;lastPoint=point
+                    point.title=description~="" and description or g.title
+                    if point.marker then r.markers[#r.markers+1]=point
+                    else
+                    lastPoint=point
                     if not point.hidden then r.points[#r.points+1]=point end
                     -- Every waypoint in order, including the in-between ones with no map pin. The arrow walks them.
                     r.path[#r.path+1]=point
+                    end
                 end
                 if description~="" then
                     if k=="goto" and point and point.radius then
