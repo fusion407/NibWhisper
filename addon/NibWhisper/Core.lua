@@ -1,7 +1,7 @@
 local addonName, addon = ...
 addon = addon or _G.NibWhisper
 local P, UI, C = addon.Protocol, addon.UI, addon.Context
-addon.VERSION = "0.7.16"
+addon.VERSION = "0.7.17"
 addon.nextSlot = 1
 addon.sequence = 0
 addon.observedTurnIns = {}
@@ -481,7 +481,7 @@ function addon:Initialize()
     if type(NibWhisperCharDB) ~= "table" then NibWhisperCharDB = {} end
     self.db, self.charDB = NibWhisperDB, NibWhisperCharDB
     self.db.opticalEnabled = self.db.opticalEnabled == true
-    -- 0.6.1 to 0.7.16 could switch a linked player to copy and paste at login. Put automatic mode back once.
+    -- 0.6.1 to 0.7.17 could switch a linked player to copy and paste at login. Put automatic mode back once.
     if self.db.geminiLinked == nil and self.Optical then
         if self.db.chatMode == "manual" or self.db.chatMode == "automatic" or self.db.opticalEnabled then
             self.db.geminiLinked, self.db.chatMode, self.db.opticalEnabled = true, "automatic", true
@@ -544,7 +544,7 @@ local function slash(message)
         addon.db.position, addon.db.mascotWidth = nil, nil
         if UI.mascot then UI.mascot:ClearAllPoints(); UI.mascot:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -260, 180); UI:SetMascotWidth(nil) end
         addon:Notice("Nib is back beside your adventure supplies, at his usual size.")
-    elseif command == "help" then UI:ShowCopy("/nib - chat\n/nib trail - leveling guide\n/nib options - settings\n/nib show or hide - mascot\n/nib auto [on/off] - optional screen-reader bridge\n/nib copy or paste - manual transfer\n/nib cancel - cancel pending question\n/nib clear - clear character chat history\n/nib reset - reset mascot position\n\nMinimap left-click opens the leveling guide (or chat if the guide is disabled), Shift-left-click opens Nib chat, and right-click opens Nib Options. Drag Nib or the minimap button to move them. Replies only place pins, open quests, or select installed guides when you click an action button. Automatic transport needs a separately running local companion and reply-slot addons installed before restarting the game.", "Nib's pocket instructions")
+    elseif command == "help" then UI:ShowCopy("/nib - chat\n/nib trail - leveling guide\n/nib options - settings\n/nib show or hide - mascot\n/nib auto [on/off] - optional screen-reader bridge\n/nib copy or paste - manual transfer\n/nib cancel - cancel pending question\n/nib clear - clear character chat history\n/nib reset - reset mascot position\n\nMinimap left-click opens the leveling guide, right-click opens chat, and Shift-right-click opens Nib Options. Drag Nib or the minimap button to move them. Replies only place pins, open quests, or select installed guides when you click an action button. Automatic transport needs a separately running local companion and reply-slot addons installed before restarting the game.", "Nib's pocket instructions")
     elseif message == "" then
         if addon.Assistant then UI:ToggleChat() elseif addon.Trail then addon.Trail:Toggle() end
     else addon:Ask(message) end

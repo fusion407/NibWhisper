@@ -50,6 +50,7 @@ test('the leveling guide works with the AI assistant switched off',()=>{
  A.db.trailPosition=nil;T.frame.GetCenter=nil;T.frame.SetPoint=nil
  T.frame.close.scripts.OnClick();assert(not T.frame:IsShown())
  A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton');assert(T.frame:IsShown(),'left-click opens the guide when there is no chat')
+ A.UI.minimap.scripts.OnEnter(A.UI.minimap)
  assert(#T.footerButtons==4,'Ask Nib is only offered with the assistant')
  assert(T:Select(T:Suggested(T.Profile(),'Solo route')));T:Tick(true)
  assert(T.stepTag:GetText():find('Step',1,true))
@@ -117,8 +118,9 @@ test('the AI assistant works with the leveling guide switched off',()=>{
  chat.GetCenter=function() return 500,400 end;chat.afterResize();assert(A.db.chatPosition.x==0 and A.db.chatPosition.y==0,'resizing chat saves it too')
  assert(A.UI:RestorePosition(chat,'chatPosition') and placed[1]=='CENTER' and placed[2]==0)
  A.db.chatPosition=nil;chat.GetCenter=nil;chat.SetPoint=nil
+ A.UI.chat:Hide();A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton');assert(A.UI.chat:IsShown(),'without the guide, left-click opens chat')
+ A.UI.chat:Hide();A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton');assert(A.UI.chat:IsShown(),'right-click opens chat')
  function IsShiftKeyDown() return true end
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton');assert(A.UI.chat:IsShown(),'Shift-click falls back to chat without the guide')
  A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton')
  local o=A.UI.options;assert(o:IsShown() and o.modes and o.mascot and o.scale and not o.advance and not o.quests)
  assert(A:Ask('What should I do next?') and A.UI.lastReply.answer:find('Leveling Guide',1,true),A.UI.lastReply.answer)
@@ -179,13 +181,17 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  A.UI:ShowChat(); assert(A.UI.chat.strata=='HIGH' and T.frame.strata=='MEDIUM')
  A.UI.guideButton.scripts.OnClick(); assert(A.UI.chat:IsShown() and T.frame.strata=='HIGH' and A.UI.chat.strata=='MEDIUM')
  T.frame:Hide()
- function IsShiftKeyDown() return true end
  A.UI.chat:Hide()
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(not T.frame:IsShown() and A.UI.chat:IsShown())
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(T.frame:IsShown() and not A.UI.options)
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(A.UI.chat:IsShown() and not T.frame:IsShown() and not A.UI.options,'right-click opens chat')
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(T.frame:IsShown() and A.UI.frontWindow==T.frame,'left-click opens the guide')
+ function IsShiftKeyDown() return true end
+ A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton'); assert(A.UI.options and A.UI.options:IsShown(),'shift-right-click opens Options')
+ A.UI.options:Hide()
  function IsShiftKeyDown() return false end
- T.frame:Hide()
- A.UI.minimap.scripts.OnClick(A.UI.minimap,'LeftButton'); assert(T.frame:IsShown() and A.UI.frontWindow==T.frame)
+ -- The tooltip lists exactly the three clicks, and nothing about dragging.
+ local tip={};local realAdd=GameTooltip.AddLine;GameTooltip.AddLine=function(_,text) tip[#tip+1]=text end
+ A.UI.minimap.scripts.OnEnter(A.UI.minimap);GameTooltip.AddLine=realAdd
+ assert(tip[2]=='Left-click: leveling guide\\nRight-click: Nib chat\\nShift-right-click: Nib Options',tip[2])
  A.eventFrame.scripts.OnEvent(nil,'PLAYER_DEAD'); T.frame:Hide(); T:Tick(true); assert(T.frame:IsShown())
  T.frame.close.scripts.OnClick(); T:Tick(true); assert(not T.frame:IsShown(),'closing the guide manually must survive the death transition')
  T:Open()
@@ -301,7 +307,9 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(T.rows[1] and T.rows[1].text:GetText()~='')
  local wide=T.content:GetWidth();T.frame:SetWidth(253);T.frame.scripts.OnSizeChanged();assert(T.content:GetWidth()<wide)
  assert(T.stepTag:GetText():find('Step 5',1,true) and T.preview[2].index==5)
+ function IsShiftKeyDown() return true end
  A.UI.minimap.scripts.OnClick(A.UI.minimap,'RightButton');assert(A.UI.options:IsShown())
+ function IsShiftKeyDown() return false end
  assert(A:Ask('What is my next Nib Trail objective?') and not A.pending)
  assert(A.UI.lastReply.answer:find('A Threat Within',1,true))
  -- Captions must stay inside their buttons, and each button row inside the chat window.

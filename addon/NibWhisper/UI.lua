@@ -746,11 +746,12 @@ function UI:CreateMinimap()
     end
     b:SetScript("OnClick", function(self, which)
         if self.suppressClickUntil and GetTime() < self.suppressClickUntil then return end
+        -- Left-click: the guide. Right-click: chat. Shift-right-click: Options.
+        -- With only one part of Nib enabled, its window takes both plain clicks.
         local shift = IsShiftKeyDown and IsShiftKeyDown()
-        if which == "RightButton" and not (shift and addon.Trail) then UI:ShowOptions()
-        elseif which == "LeftButton" and shift and addon.Assistant then UI:ShowChat()
-        elseif addon.Trail then addon.Trail:Open()
-        elseif addon.Assistant then UI:ToggleChat() end
+        if which == "RightButton" and (shift or not addon.Assistant) then UI:ShowOptions()
+        elseif which == "RightButton" or not addon.Trail then if addon.Assistant then UI:ToggleChat() end
+        else addon.Trail:Open() end
     end)
     b:SetScript("OnDragStart", function(self)
         self:SetScript("OnUpdate", function()
@@ -772,9 +773,8 @@ function UI:CreateMinimap()
         GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Nib Whisper")
         local lines = {}
         if addon.Trail then lines[#lines + 1] = "Left-click: leveling guide" end
-        if addon.Assistant then lines[#lines + 1] = addon.Trail and "Shift-left-click: Nib chat" or "Left-click: Nib chat" end
-        if addon.Trail then lines[#lines + 1] = "Shift-right-click: leveling guide" end
-        lines[#lines + 1] = "Right-click: Nib Options\nDrag: move around minimap"
+        if addon.Assistant then lines[#lines + 1] = (addon.Trail and "Right-click" or "Click") .. ": Nib chat" end
+        lines[#lines + 1] = (addon.Assistant and "Shift-right-click" or "Right-click") .. ": Nib Options"
         GameTooltip:AddLine(table.concat(lines, "\n"), 0.85, 0.9, 0.9, true); GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)

@@ -1,4 +1,4 @@
-# Nib Trail 0.7.16 in-game QA
+# Nib Trail 0.7.17 in-game QA
 
 ## Desktop: first five minutes
 
@@ -7,7 +7,7 @@
 3. In **Nib Options**, check that auto advance and map pins are on. For a fresh Human, look for **A Threat Within**, quest 783. Walk toward the waypoint and check that the TomTom distance decreases. If a step has several locations, click the coordinate row to cycle pins.
 4. Drag the bottom-right corner of the tracker and check that the objectives wrap and scroll. On a Warrior in **1–6 Northshire**, try the checkbox for **Train Battle Shout**, then click it again to undo it while the vendor task is still pending. Open and close Brother Danil's vendor window, then train Battle Shout. The next step and TomTom waypoint should update automatically. Click the route banner and try the category dropdown and search.
    - At Northshire step 12, check that **Nibbled-On Book** is named and the raw directive is gone. Press the down arrow to inspect step 13. The tracker should pause on 13 even when its condition makes it inactive. Click **Done** to resume forward progress.
-5. Shift-left-click the minimap button and choose **Next objective** in Guide chat. Check that the reply names the active step. Try **Quest log** and **Professions**. This works before the companion starts.
+5. Right-click the minimap button and choose **Next objective** in Guide chat. Check that the reply names the active step. Try **Quest log** and **Professions**. This works before the companion starts.
 6. Copy your Gemini API key. In Nib chat choose **Gemini setup → Use copied key**. Leave the clipboard alone until you see **Gemini connected**. Ask “Where should I go for this step?” and compare the answer to the guide. Check that the small corner signal disappears when the helper receives the request. [Setup instructions](README.md)
 7. Left-click the minimap button to open the guide. Put chat and the guide partly over each other and open each from its shortcut. Verify the front window covers the other. Click an objective with coordinates and compare the TomTom destination with its tooltip. Try **Targets** outside combat. On a death or release, verify that a guide you left open stays open.
 8. Open your bank on two characters and return to the first. Ask Nib how many of a known item are in each character’s bags and bank. Check the counts and which records are described as last seen. Open a crafting profession with filters cleared and ask what to craft for the next few skill points. Compare the recipe, color and quantities with the game.

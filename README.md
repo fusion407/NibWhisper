@@ -28,7 +28,7 @@ This step is only for AI answers.
 2. Double-click **`Start-Nib-Auto.cmd`** in the folder you unzipped. The first time, it finds your AddOns folder and creates Nib's reply files there. Leave its window open while you play.
 3. Fully exit and reopen the game once, so it sees the reply files.
 4. Get a free key from [Google AI Studio](https://aistudio.google.com/apikey) and copy it.
-5. In the game, Shift-left-click Nib's minimap button and choose **Gemini setup → Use copied key**. Keep the key on your clipboard until Nib says **Gemini connected**.
+5. In the game, right-click Nib's minimap button and choose **Gemini setup → Use copied key**. Keep the key on your clipboard until Nib says **Gemini connected**.
 
 That's it. Nib remembers the link, so from now on you only start `Start-Nib-Auto.cmd` before playing. To have it start by itself when you sign in to Windows, run `Install-Nib.ps1 -Background` once.
 
@@ -114,14 +114,14 @@ Nib is instructed to stay in Azeroth, permit casual Warcraft roleplay, and redir
 | Control | Effect |
 |---|---|
 | Minimap left-click | Open the leveling guide, or chat if only the assistant is enabled |
-| Minimap Shift-left-click / click Nib / `/nib` | Open Nib chat when the assistant is enabled |
-| Minimap Shift-right-click | Open the leveling guide when enabled |
+| Minimap right-click / click Nib / `/nib` | Open Nib chat when the assistant is enabled |
+| Minimap Shift-right-click | Open Nib Options (plain right-click when only the guide is enabled) |
 | **×** on Nib | Hide the mascot until you show him again in Nib Options |
 | Click a blue `>` guide line | Copy its video or web link |
 | Click a coloured name in a guide step | Open an info card with Ask Nib and a Wowhead link |
 | Right-click a quest objective in the guide | Show quest status, objectives, and prerequisites |
 | **Auto quests** in Nib Options | Accept and turn in the current step's quests while the guide is open; hold Ctrl to skip |
-| Minimap right-click / `/nib options` | Open settings for chat, the guide, sync, mascot visibility, and window size |
+| `/nib options` | Open settings for chat, the guide, sync, mascot visibility, and window size |
 | Click a guide objective with coordinates | Set its TomTom waypoint |
 | **Targets** in the guide header | Open Nib’s target picker outside combat |
 | Drag Nib / minimap icon | Move it |

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.17
+- Minimap button: left-click opens the leveling guide, right-click opens Nib chat, and Shift-right-click opens Nib Options. The tooltip lists just those three.
+
 ## 0.7.16
 - A step kept visible while you travel is shown once. It could appear twice after browsing back and moving on again.
 
