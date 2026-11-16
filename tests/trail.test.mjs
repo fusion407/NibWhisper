@@ -510,6 +510,30 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(T:Evaluate(ashen,19,pr2,T.QuestReader()).skip,'with a Wailing Caverns quest the hearth is skipped')
  active[wcIds[1]]=nil;active[1023]=nil;complete[991]=nil
  C_QuestLog.ReadyForTurnIn=realReady;C_Map.GetAreaInfo=nil
+ -- Step 75 of the same chapter: collect 5 bracers for quest 1016. Accepting the quest does not finish it.
+ local bags={}
+ local realItem=C_Item
+ C_Item={GetItemCount=function(id) return bags[id] or 0 end,GetItemNameByID=function() return 'Intact Elemental Bracer' end}
+ active[1016]=true;bags[12220]=1
+ local bracers=T:Evaluate(ashen,75,T.Profile(),T.QuestReader())
+ assert(not bracers.complete and table.concat(bracers.lines,'|'):find('[ ] Collect Intact Elemental Bracer (1/5)',1,true),'one bracer of five, with the quest accepted, is not done: '..table.concat(bracers.lines,'|'))
+ bags[12220]=5;assert(T:Evaluate(ashen,75,T.Profile(),T.QuestReader()).complete,'five bracers finish it')
+ bags[12220]=0;active[1016]=nil;complete[1016]=true;assert(T:Evaluate(ashen,75,T.Profile(),T.QuestReader()).complete,'handing the quest in finishes it')
+ complete[1016]=nil
+ -- The other collect options: 2 counts the objective's progress, 4 finishes with the objective, 16 ignores the hand-in, 1 has no checkbox.
+ local objective={numFulfilled=3,numRequired=5,finished=false}
+ local realObjectives=C_QuestLog.GetQuestObjectives
+ C_QuestLog.GetQuestObjectives=function(id) if id==7 then return {objective} end return realObjectives(id) end
+ local function collectStep(args) local fx={id='collect-'..args,title='C',mode='Solo route',faction='Alliance',conditions={},steps=1};T.parsed[fx.id]={steps={T.Parse('step\\n.collect '..args)},labels={}};return T:Evaluate(fx,1,T.Profile(),T.QuestReader()) end
+ bags[500]=2
+ assert(collectStep('500,5,7,1,2').complete,'with flag 2, 3 already handed toward the objective plus 2 held make 5')
+ assert(not collectStep('500,5,7,1').complete,'without it, 2 of 5 is not done')
+ objective.finished=true;bags[500]=0
+ assert(collectStep('500,5,7,1,4').complete,'with flag 4, the finished objective finishes it')
+ complete[7]=true
+ assert(not collectStep('500,5,7,1,16').complete,'with flag 16, handing the quest in does not finish it')
+ local note=collectStep('500,5,7,1,1');assert(note.checks==0 and #note.lines==1,'flag 1 shows the line without a checkbox')
+ complete[7]=nil;C_QuestLog.GetQuestObjectives=realObjectives;C_Item=realItem
  -- The step list has a checkbox on each row: skip the current step, skip past the next one, or go back.
  fixture('step\\n>> Walk north','step\\n>> Walk east','step\\n>> Walk south','step\\n>> Walk west','step\\n>> Rest here')
  auto.steps=5;T.state.guides[auto.id].marks=nil;T:Write(auto,2);T.reviewing=false;T:Tick(true)

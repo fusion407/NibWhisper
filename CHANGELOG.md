@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.18
+- Fixed: steps that ask you to collect items for a quest were counted as done as soon as you accepted the quest, so the guide skipped them. They now finish when you hold the items, or when the quest is handed in. This affected 1,638 steps.
+
 ## 0.7.17
 - Minimap button: left-click opens the leveling guide, right-click opens Nib chat, and Shift-right-click opens Nib Options. The tooltip lists just those three.
 

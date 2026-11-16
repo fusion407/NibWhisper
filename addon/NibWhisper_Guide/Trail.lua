@@ -512,12 +512,36 @@ function T:EvaluateStep(g,index,p,q)
                     end
                 end
             elseif k=="collect" then
-                local count=call(C_Item and C_Item.GetItemCount or GetItemCount,id)
+                -- .collect item,quantity,quest,objectives,flags (the route's format). "objectives" only says which of the
+                -- quest's objectives the item belongs to. Flags: 1 no checkbox, 2 count the objective's progress toward
+                -- the quantity, 4 done once those objectives are, 8 include the bank, 16 not done just by handing the quest in.
                 local needed, quest = tonumber(a[2]) or 1, tonumber(a[3])
+                local objectiveMask, flags = math.max(0, tonumber(a[4]) or 0), tonumber(a[5]) or 0
+                if flags < 0 then flags = 3 end
+                local function flag(bit) return math.floor(flags / bit) % 2 == 1 end
+                local count=call(C_Item and C_Item.GetItemCount or GetItemCount,id,flag(8) or nil)
+                local flagged = {}
+                if quest and (flag(2) or flag(4)) then
+                    local objectives = call(C_QuestLog and C_QuestLog.GetQuestObjectives, quest)
+                    for n = 1, 8 do
+                        if math.floor(objectiveMask / 2^(n - 1)) % 2 == 1 and type(objectives) == "table" and objectives[n] then flagged[#flagged + 1] = objectives[n] end
+                    end
+                end
+                if flag(2) then
+                    for _, objective in ipairs(flagged) do needed = needed - (tonumber(objective.numFulfilled) or 0) end
+                    needed = math.max(0, needed)
+                end
                 local name = itemName(id,e.annotation) or "the required item"
                 local progress = count and string.format(" (%d/%d)", math.min(count,needed),needed) or (needed > 1 and (" ×" .. needed) or "")
-                local collected = (count and count >= needed) or q("turnin",quest) or (a[4] == "1" and q("accept",quest))
-                check(collected,description~="" and description or ("Collect "..name..progress),quest,e.display,entry,k,nil,e.checkboxCondition)
+                local collected = (count and count >= needed) or (not flag(16) and q("turnin",quest) == true)
+                if flag(4) and #flagged > 0 then
+                    local finished = true
+                    for _, objective in ipairs(flagged) do finished = finished and (objective.finished == true or objective.finished == 1) end
+                    collected = collected or finished
+                end
+                local line = description~="" and description or ("Collect "..name..progress)
+                if flag(1) then addLine(line, e.display)
+                else check(collected==true,line,quest,e.display,entry,k,nil,e.checkboxCondition) end
             elseif k=="train" and id then
                 local flags = tonumber(a[2]) or 0
                 local learned = spellKnown(id) ~= (math.floor(flags / 2) % 2 == 1)
