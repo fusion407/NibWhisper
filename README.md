@@ -120,6 +120,7 @@ Nib is instructed to stay in Azeroth, permit casual Warcraft roleplay, and redir
 | Click a blue `>` guide line | Copy its video or web link |
 | Click a coloured name in a guide step | Open an info card with Ask Nib and a Wowhead link |
 | Right-click a quest objective in the guide | Show quest status, objectives, and prerequisites |
+| **Auto flights** in Nib Options | On a Fly to step, take that flight when you talk to the flight master; hold Ctrl or Shift to choose by hand |
 | **Auto quests** in Nib Options | Accept and turn in the current step's quests while the guide is open; hold Ctrl to skip |
 | `/nib options` | Open settings for chat, the guide, sync, mascot visibility, and window size |
 | Click a guide objective with coordinates | Set its TomTom waypoint |

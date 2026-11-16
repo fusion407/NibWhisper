@@ -1,4 +1,4 @@
-# Nib Trail 0.7.19 in-game QA
+# Nib Trail 0.7.20 in-game QA
 
 ## Desktop: first five minutes
 
@@ -46,6 +46,8 @@
 25. New in 0.7.14. In 21-23 Ashenvale/Stonetalon (dungeon route) without Wailing Caverns quests, finish step 18. The guide should show Hearth to Astranaar, then Raene Wolfrunner with both quests listed and no "unavailable" line.
 
 26. New in 0.7.15. In 21-23 Ashenvale/Stonetalon (dungeon route) step 26, check the arrow points to the first waypoint and the guide shows Path 1/6, and that it moves on as you reach each point until Ratchet. Arriving in Ratchet should finish the step.
+
+27. New in 0.7.20. On a step that says Fly to a place, talk to the flight master with the guide open. The flight map should open and Nib should take that flight. Try again holding Shift: the map should open and wait for you. Switch Auto flights off in Nib Options and check it no longer flies.
 
 ## Desktop → laptop → desktop
 

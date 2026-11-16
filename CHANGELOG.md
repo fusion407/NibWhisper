@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.20
+- Auto flights: on a step that says Fly to a place, talking to the flight master opens the flight map and takes that flight. Hold Ctrl or Shift to choose by hand, or switch Auto flights off in Nib Options.
+
 ## 0.7.19
 - Fixed: the arrow could point at places the route marks as dangers to avoid, such as Horde guard camps, instead of the destination. Those spots are no longer treated as destinations.
 

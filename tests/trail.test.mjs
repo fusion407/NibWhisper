@@ -584,6 +584,32 @@ test('real trail bundle loads, recommends a starter, tracks quests, converts wor
  assert(#T.state.guides[auto.id].sticky==1,'the saved list is repaired: '..#T.state.guides[auto.id].sticky)
  T:Write(auto,1,{},{1});T.reviewing=false;T:Tick(true)
  assert(at()==2 and #T.state.guides[auto.id].sticky==1,'passing the step again does not add it twice')
+ -- Auto flights: on a "Fly to" step the flight master's map opens and the named flight is taken.
+ fixture('step\\n.fp Azshara >> Get the Azshara flight path\\n.fly Ashenvale >> Fly to Ashenvale','step\\n>> Rest here')
+ auto.steps=2;T.state.guides[auto.id].marks=nil;T:Write(auto,1);T.reviewing=false;T:Open()
+ assert(T:FlightDestination()=='Ashenvale')
+ local chosen,taken,gossipMarks
+ C_GossipInfo={GetOptions=function() return {{gossipOptionID=11,icon=132050,name='Make this inn your home'},{gossipOptionID=12,icon=132057,name='Show me where I can fly'}} end,
+  SelectOption=function(id) chosen=id end,GetActiveQuests=function() return {} end,GetAvailableQuests=function() return {} end}
+ local nodes={{'Talrendis Point, Azshara','CURRENT'},{'Astranaar, Ashenvale','REACHABLE'},{'Ratchet, The Barrens','REACHABLE'}}
+ function NumTaxiNodes() return #nodes end
+ function TaxiNodeName(i) return nodes[i][1] end
+ function TaxiNodeGetType(i) return nodes[i][2] end
+ function TakeTaxiNode(i) taken=i end
+ local fire=A.eventFrame.scripts.OnEvent
+ fire(nil,'GOSSIP_SHOW');assert(chosen==12,'talking to the flight master opens the flight map')
+ fire(nil,'TAXIMAP_OPENED');assert(taken==2,'the named destination is taken')
+ taken=nil;function IsShiftKeyDown() return true end;fire(nil,'TAXIMAP_OPENED');assert(taken==nil,'holding Shift chooses by hand')
+ function IsShiftKeyDown() return false end
+ A.db.trailFlightAuto=false;fire(nil,'TAXIMAP_OPENED');assert(taken==nil,'the Options switch turns it off')
+ A.db.trailFlightAuto=nil
+ nodes[2][2]='NONE';fire(nil,'TAXIMAP_OPENED');assert(taken==nil and A.UI.status:GetText():find('could not find a flight to Ashenvale',1,true),'an unreachable flight is not taken')
+ nodes[2][2]='REACHABLE'
+ T:Write(auto,2);T:Tick(true);chosen=nil;fire(nil,'GOSSIP_SHOW');fire(nil,'TAXIMAP_OPENED');assert(chosen==nil and taken==nil,'no Fly to step, no automation')
+ A.UI:ShowOptions();A.UI:RefreshOptions();assert(A.UI.options.flights:GetText()=='Auto flights: on')
+ A.UI.options.flights.scripts.OnClick();assert(A.db.trailFlightAuto==false and A.UI.options.flights:GetText()=='Auto flights: off')
+ A.db.trailFlightAuto=nil;A.UI.options:Hide()
+ NumTaxiNodes=nil;TaxiNodeName=nil;TaxiNodeGetType=nil;TakeTaxiNode=nil
  -- Waypoints with radius 0 mark places to avoid (guard camps). The arrow points at the real destination.
  fixture('step\\n.goto 1429,40,40\\n.goto 1429,10,10,0\\n.goto 1429,20,20,0\\n>> Be careful about the guards\\n>> Talk to Jarrodenus\\n.fp Azshara >> Get the Azshara flight path','step\\n>> Rest here')
  auto.steps=2;T.state.guides[auto.id].marks=nil;T:Write(auto,1);T.reviewing=false;T.pinIndex=nil;T.clickedPoint=nil

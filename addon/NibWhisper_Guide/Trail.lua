@@ -650,7 +650,7 @@ function T:Init()
     self.state=db.trail;self.state.guides=self.state.guides or {};self.dirty=false
     if not self.gossipHooked and C_GossipInfo and C_GossipInfo.SelectOption and hooksecurefunc then
         -- Choosing a dialogue option is what "talk to X to start the escort" steps are waiting for.
-        self.gossipHooked = pcall(hooksecurefunc, C_GossipInfo, "SelectOption", function() pcall(T.AutoMark, T, {gossipoption=true}) end)
+        self.gossipHooked = pcall(hooksecurefunc, C_GossipInfo, "SelectOption", function() if not T.choosingTaxi then pcall(T.AutoMark, T, {gossipoption=true}) end end)
     end
     self.clock=self.state.selected and self.state.selected.at or 0
     for _, g in pairs(self.state.guides) do self.clock=math.max(self.clock,g.at or 0) end
@@ -707,6 +707,59 @@ function T:AutoMark(kinds, id, quiet)
     return #changes
 end
 
+-- Where the current step (or a side step still open) says to fly, if it does.
+function T:FlightDestination()
+    local g, s = self:Current()
+    if not g or not s then return nil end
+    local p, q, chapter = self.Profile(), quests(), self:Chapter(g)
+    local function find(step)
+        local result = self:Evaluate(g, step, p, q)
+        if not result or result.skip then return nil end
+        for _, control in pairs(result.controls) do
+            if control.kind == "fly" and not control.automatic and not control.marked then
+                local entry = chapter.steps[control.step] and chapter.steps[control.step].entries[control.entry]
+                local place = entry and trim((entry.args or ""):gsub("%s*<<.*$", ""))
+                if place and place ~= "" then return place end
+            end
+        end
+    end
+    local place = find(s.step)
+    for _, step in ipairs(s.sticky or {}) do if not place and step ~= s.step then place = find(step) end end
+    return place
+end
+
+local TAXI_ICON = 132057
+-- Talking to a flight master on a "Fly to" step opens the flight map and takes that flight.
+-- Only while the guide is open and Auto flights is on. Hold Ctrl or Shift to choose by hand.
+function T:FlightAutomation(event)
+    if A.db.trailFlightAuto == false or not self.frame or not self.frame:IsShown() then return end
+    if call(IsControlKeyDown) or call(IsShiftKeyDown) or call(InCombatLockdown) then return end
+    local place = self:FlightDestination()
+    if not place then return end
+    if event == "GOSSIP_SHOW" then
+        local gossip = C_GossipInfo or {}
+        for _, option in ipairs(call(gossip.GetOptions) or {}) do
+            if option.icon == TAXI_ICON or option.type == "taxi" then
+                self.choosingTaxi = true
+                call(gossip.SelectOption, option.gossipOptionID)
+                self.choosingTaxi = nil
+                return
+            end
+        end
+    elseif event == "TAXIMAP_OPENED" then
+        local wanted = place:upper()
+        for i = 1, call(NumTaxiNodes) or 0 do
+            local name = call(TaxiNodeName, i)
+            if type(name) == "string" and name:upper():find(wanted, 1, true) and call(TaxiNodeGetType, i) == "REACHABLE" then
+                call(TakeTaxiNode, i)
+                A:Notice("Flying to " .. text(name) .. ".")
+                return true
+            end
+        end
+        A:Notice("Nib could not find a flight to " .. place .. " here. Pick it on the map.")
+    end
+end
+
 local HEARTHSTONE_SPELL = 8690
 -- Game events that finish a step the quest log knows nothing about.
 function T:GameEvent(event, arg1, arg2, arg3)
@@ -718,7 +771,10 @@ function T:GameEvent(event, arg1, arg2, arg3)
         if arg3 == HEARTHSTONE_SPELL then self:AutoMark({hs=true}) end
         self:AutoMark({cast=true}, arg3)
     elseif event == "HEARTHSTONE_BOUND" then self:AutoMark({home=true})
-    elseif event == "TAXIMAP_OPENED" then self:AutoMark({fp=true})
+    elseif event == "TAXIMAP_OPENED" then
+        self:AutoMark({fp=true})
+        self:FlightAutomation(event)
+    elseif event == "GOSSIP_SHOW" then self:FlightAutomation(event)
     elseif event == "UI_INFO_MESSAGE" then
         -- "New flight path discovered!"
         if ERR_NEWTAXIPATH and arg2 == ERR_NEWTAXIPATH then self:AutoMark({fp=true}) end

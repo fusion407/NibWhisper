@@ -554,6 +554,17 @@ function UI:ShowOptions()
                 if addon.db.trailFinishSound then trail:ChapterFinished() end
                 UI:RefreshOptions()
             end)
+            y = y - 33
+            f.flights = control("", 1, function()
+                addon.db.trailFlightAuto = addon.db.trailFlightAuto == false
+                UI:RefreshOptions()
+            end)
+            f.flights:SetScript("OnEnter", function(b)
+                GameTooltip:SetOwner(b, "ANCHOR_TOP"); GameTooltip:AddLine("Auto flights")
+                GameTooltip:AddLine("On a guide step that says Fly to a place, talking to the flight master opens the flight map and takes that flight. Hold Ctrl or Shift to choose by hand.", 0.85, 0.9, 0.9, true)
+                GameTooltip:Show()
+            end)
+            f.flights:SetScript("OnLeave", function() GameTooltip:Hide() end)
             y = y - 44
         end
         if assistant then
@@ -596,6 +607,7 @@ function UI:RefreshOptions()
         f.advance:SetText(addon.db.trailAuto == false and "Auto advance: off" or "Auto advance: on")
         f.pins:SetText(addon.db.trailPins == false and "Map pins: off" or "Map pins: on")
         f.quests:SetText(addon.db.trailQuestAuto == false and "Auto quests: off" or "Auto quests: on")
+        f.flights:SetText(addon.db.trailFlightAuto == false and "Auto flights: off" or "Auto flights: on")
         f.login:SetText(addon.db.trailOpenOnLogin == false and "Open at login: off" or "Open at login: on")
         f.finish:SetText(addon.db.trailFinishSound == false and "Chapter sound: off" or "Chapter sound: on")
     end
